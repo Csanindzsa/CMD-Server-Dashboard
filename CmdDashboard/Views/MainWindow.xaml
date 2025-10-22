@@ -3,11 +3,17 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="clr-namespace:CmdDashboard.Controls"
     xmlns:vm="clr-namespace:CmdDashboard.ViewModels"
+    xmlns:panels="clr-namespace:CmdDashboard.Panels"
+    xmlns:converters="clr-namespace:CmdDashboard.Converters"
         Title="Command Dashboard"
         Height="720"
         Width="1200"
         Background="#FF101010"
         FontFamily="Segoe UI">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <converters:ReferenceEqualsConverter x:Key="ReferenceEqualsConverter"/>
+    </Window.Resources>
     <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -15,12 +21,172 @@
         </Grid.RowDefinitions>
 
         <DockPanel Grid.Row="0" Margin="0 0 0 12">
-            <StackPanel Orientation="Horizontal">
-                <Button Content="New Terminal"
-                        Padding="16 6"
-                        Margin="0 0 8 0"
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="+"
+                        FontSize="20"
+                        Width="44"
+                        Height="36"
+                        Margin="0 0 12 0"
                         Click="NewTerminalButton_OnClick"
-                        Style="{StaticResource TerminalButtonStyle}"/>
+                        Style="{StaticResource TerminalButtonStyle}"
+                        ToolTip="New Terminal"/>
+                <Expander Header="Notes"
+                          Margin="0 0 12 0"
+                          Foreground="White"
+                          Background="Transparent"
+                          Width="280">
+                    <Border Background="#FF1A1A1A"
+                            BorderBrush="#FF3A3A3A"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="10">
+                        <StackPanel x:Name="NotesPanel" SizeChanged="NotesPanel_OnSizeChanged">
+                            <StackPanel.Resources>
+                                <Style x:Key="NoteTileButtonStyle" TargetType="Button">
+                                    <Setter Property="Background" Value="#FF181818"/>
+                                    <Setter Property="BorderBrush" Value="#FF3F3F3F"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                    <Setter Property="Padding" Value="12"/>
+                                    <Setter Property="Margin" Value="0 0 8 8"/>
+                                    <Setter Property="Width" Value="220"/>
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                    <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="6">
+                                                    <ContentPresenter Margin="0"
+                                                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="BorderBrush" Value="#FF5F5F5F"/>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter Property="Background" Value="#FF222222"/>
+                                        </Trigger>
+                                        <DataTrigger Value="True">
+                                            <DataTrigger.Binding>
+                                                <MultiBinding Converter="{StaticResource ReferenceEqualsConverter}">
+                                                    <Binding RelativeSource="{RelativeSource AncestorType=Window}" Path="DataContext.SelectedNote"/>
+                                                    <Binding/>
+                                                </MultiBinding>
+                                            </DataTrigger.Binding>
+                                            <Setter Property="BorderBrush" Value="#FF7F7F7F"/>
+                                            <Setter Property="Background" Value="#FF2A2A2A"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Resources>
+
+                            <ItemsControl ItemsSource="{Binding VisibleNotes}" Margin="0 0 0 8">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel IsItemsHost="True"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:NoteViewModel}">
+                                        <Button Command="{Binding DataContext.SelectNoteCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource NoteTileButtonStyle}">
+                                            <StackPanel>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="{Binding Title}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="White"/>
+                                                    <Ellipse Grid.Column="1"
+                                                             Width="8"
+                                                             Height="8"
+                                                             Margin="8 2 0 0"
+                                                             VerticalAlignment="Top"
+                                                             Fill="#FFE0A800"
+                                                             Visibility="{Binding HasChanges, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                                </Grid>
+                                                <TextBlock Text="{Binding Content}"
+                                                           Foreground="#FFCCCCCC"
+                                                           TextWrapping="Wrap"
+                                                           Margin="0 6 0 0"
+                                                           MaxHeight="60"
+                                                           Opacity="0.85"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <ComboBox ItemsSource="{Binding Notes}"
+                                      SelectedItem="{Binding SelectedNote}"
+                                      DisplayMemberPath="Title"
+                                      Background="#FF121212"
+                                      Foreground="White"
+                                      BorderBrush="#FF3F3F3F"
+                                      Margin="0 0 0 8"
+                                      Visibility="{Binding HasOverflow, Converter={StaticResource BoolToVisibilityConverter}}"
+                                      IsEditable="True"
+                                      TextSearch.TextPath="Title">
+                                <ComboBox.ItemContainerStyle>
+                                    <Style TargetType="ComboBoxItem">
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="Background" Value="#FF1E1E1E"/>
+                                    </Style>
+                                </ComboBox.ItemContainerStyle>
+                                <ComboBox.Resources>
+                                    <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#FF121212"/>
+                                    <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#FF121212"/>
+                                    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#FF2F6FED"/>
+                                    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="White"/>
+                                    <Style TargetType="TextBox">
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="Background" Value="#FF121212"/>
+                                        <Setter Property="BorderBrush" Value="#FF3F3F3F"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                        <Setter Property="Padding" Value="2"/>
+                                    </Style>
+                                </ComboBox.Resources>
+                            </ComboBox>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="New"
+                                        Width="60"
+                                        Command="{Binding AddNoteCommand}"
+                                        Style="{StaticResource TerminalButtonStyle}"
+                                        Margin="0 0 8 0"/>
+                                <Button Content="Save"
+                                        Width="60"
+                                        Command="{Binding SaveSelectedNoteCommand}"
+                                        Style="{StaticResource TerminalButtonStyle}"
+                                        Margin="0 0 8 0"/>
+                                <Button Content="Delete"
+                                        Width="60"
+                                        Command="{Binding DeleteSelectedNoteCommand}"
+                                        Style="{StaticResource TerminalButtonStyle}"/>
+                            </StackPanel>
+                            <TextBox Text="{Binding SelectedNote.Content, UpdateSourceTrigger=PropertyChanged}"
+                                     AcceptsReturn="True"
+                                     VerticalScrollBarVisibility="Auto"
+                                     FontFamily="Consolas"
+                                     FontSize="13"
+                                     Height="150"
+                                     Background="#FF121212"
+                                     Foreground="White"
+                                     BorderBrush="#FF3F3F3F"
+                                     BorderThickness="1"
+                                     Margin="0 8 0 0"/>
+                        </StackPanel>
+                    </Border>
+                </Expander>
             </StackPanel>
             <TextBlock Text="Command Dashboard"
                        FontSize="20"
@@ -37,15 +203,16 @@
                  Background="Transparent"
                  BorderThickness="0"
                  HorizontalContentAlignment="Stretch"
+                 VerticalContentAlignment="Stretch"
                  AllowDrop="True"
-                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                  PreviewMouseLeftButtonDown="TerminalList_OnPreviewMouseLeftButtonDown"
                  PreviewMouseMove="TerminalList_OnPreviewMouseMove"
                  Drop="TerminalList_OnDrop">
             <ListBox.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <WrapPanel IsItemsHost="True"/>
+                    <panels:AdaptiveUniformGrid/>
                 </ItemsPanelTemplate>
             </ListBox.ItemsPanel>
             <ListBox.ItemContainerStyle>
@@ -58,7 +225,12 @@
             </ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate>
                 <DataTemplate DataType="{x:Type vm:TerminalSessionViewModel}">
-                    <controls:TerminalTile/>
+                    <Grid Margin="4"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch">
+                        <controls:TerminalTile HorizontalAlignment="Stretch"
+                                                VerticalAlignment="Stretch"/>
+                    </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>

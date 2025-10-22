@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using CmdDashboard.Services;
@@ -12,6 +13,11 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
     private readonly TerminalProcessHost _processHost;
     private readonly StringBuilder _buffer = new();
     private readonly SynchronizationContext _syncContext;
+    private readonly List<string> _history = new();
+
+    private int _historyIndex = -1;
+    private string? _historyDraft;
+    private bool _isRecalling;
 
     [ObservableProperty]
     private string _title = string.Empty;
@@ -54,6 +60,15 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
     partial void OnPendingInputChanged(string value)
     {
         SendInputCommand.NotifyCanExecuteChanged();
+
+        if (_isRecalling)
+        {
+            _isRecalling = false;
+            return;
+        }
+
+        _historyIndex = -1;
+        _historyDraft = value;
     }
 
     private void AppendOutput(string text)
@@ -82,6 +97,13 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         _buffer.AppendLine($"> {command}");
         Output = _buffer.ToString();
         SendRaw(command);
+
+        if (_history.Count == 0 || !_history[^1].Equals(command, StringComparison.Ordinal))
+        {
+            _history.Add(command);
+        }
+
+        ResetHistoryTraversal();
     }
 
     private void InitializeStartupCommands(string? startCommand)
@@ -141,5 +163,68 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         _processHost.OutputReceived -= AppendOutput;
         _processHost.Exited -= OnExited;
         _processHost.Dispose();
+    }
+
+    public bool TryRecallPrevious(out string command)
+    {
+        command = string.Empty;
+
+        if (_history.Count == 0)
+        {
+            return false;
+        }
+
+        if (_historyIndex == -1)
+        {
+            _historyDraft = PendingInput;
+            _historyIndex = _history.Count - 1;
+        }
+        else if (_historyIndex > 0)
+        {
+            _historyIndex--;
+        }
+
+        command = _history[_historyIndex];
+        _isRecalling = true;
+        return true;
+    }
+
+    public bool TryRecallNext(out string command)
+    {
+        command = string.Empty;
+
+        if (_historyIndex == -1)
+        {
+            if (_historyDraft is null)
+            {
+                return false;
+            }
+
+            command = _historyDraft;
+            _historyDraft = null;
+            _isRecalling = true;
+            return true;
+        }
+
+        if (_historyIndex < _history.Count - 1)
+        {
+            _historyIndex++;
+            command = _history[_historyIndex];
+        }
+        else
+        {
+            _historyIndex = -1;
+            command = _historyDraft ?? string.Empty;
+            _historyDraft = null;
+        }
+
+        _isRecalling = true;
+        return true;
+    }
+
+    private void ResetHistoryTraversal()
+    {
+        _historyIndex = -1;
+        _historyDraft = string.Empty;
     }
 }

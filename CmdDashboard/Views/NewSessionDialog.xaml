@@ -23,22 +23,22 @@
         </Grid.ColumnDefinitions>
 
         <TextBlock Text="Title" Grid.Row="0" Grid.Column="0" Margin="0 0 12 12" VerticalAlignment="Center"/>
-        <TextBox x:Name="TitleBox" Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2"
-                 Margin="0 0 0 12"
-                 Background="#FF121212" BorderBrush="#FF3F3F3F" BorderThickness="1"
+    <TextBox x:Name="TitleBox" Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2"
+         Margin="0 0 0 12"
+         Background="#FF121212" BorderBrush="#FF3F3F3F" BorderThickness="1" Foreground="White"
                  Padding="6" FontSize="14"/>
 
         <TextBlock Text="Working directory" Grid.Row="1" Grid.Column="0" Margin="0 0 12 12" VerticalAlignment="Center"/>
-        <TextBox x:Name="DirectoryBox" Grid.Row="1" Grid.Column="1"
-                 Margin="0 0 12 12"
-                 Background="#FF121212" BorderBrush="#FF3F3F3F" BorderThickness="1"
+    <TextBox x:Name="DirectoryBox" Grid.Row="1" Grid.Column="1"
+         Margin="0 0 12 12"
+         Background="#FF121212" BorderBrush="#FF3F3F3F" BorderThickness="1" Foreground="White"
                  Padding="6" FontSize="14"/>
         <Button Content="Browse" Grid.Row="1" Grid.Column="2" Margin="0 0 0 12" Padding="12 6" Click="BrowseButton_OnClick" Style="{StaticResource TerminalButtonStyle}"/>
 
         <TextBlock Text="Startup command" Grid.Row="2" Grid.Column="0" Margin="0 0 12 12" VerticalAlignment="Top"/>
-        <TextBox x:Name="StartupCommandBox" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
-                 Margin="0 0 0 12"
-                 Background="#FF121212" BorderBrush="#FF3F3F3F" BorderThickness="1"
+    <TextBox x:Name="StartupCommandBox" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
+         Margin="0 0 0 12"
+         Background="#FF121212" BorderBrush="#FF3F3F3F" BorderThickness="1" Foreground="White"
                  Padding="6" FontSize="14"
                  AcceptsReturn="True" Height="120" TextWrapping="Wrap"/>
 

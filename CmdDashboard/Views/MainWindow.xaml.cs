@@ -53,6 +53,14 @@ public partial class MainWindow : Window
         }
     }
 
+    private void NotesPanel_OnSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel)
+        {
+            viewModel.UpdateVisibleNoteCapacity(e.NewSize.Width);
+        }
+    }
+
     private void TerminalList_OnPreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         _dragStartPoint = e.GetPosition(null);

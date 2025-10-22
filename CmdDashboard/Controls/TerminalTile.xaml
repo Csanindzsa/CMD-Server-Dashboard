@@ -5,8 +5,10 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DesignWidth="320"
-             d:DesignHeight="220">
-    <Border BorderBrush="#FF444444" BorderThickness="1" CornerRadius="6" Background="#FF1E1E1E" Padding="8" Margin="4">
+             d:DesignHeight="220"
+             HorizontalAlignment="Stretch"
+             VerticalAlignment="Stretch">
+    <Border BorderBrush="#FF444444" BorderThickness="1" CornerRadius="6" Background="#FF1E1E1E" Padding="8">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -44,26 +46,22 @@
                 <TextBox Text="{Binding Output}" IsReadOnly="True" TextWrapping="Wrap" Background="#FF121212" Foreground="#FFEEEEEE" BorderThickness="0" FontFamily="Consolas" FontSize="13" AcceptsReturn="True" TextChanged="OutputBox_OnTextChanged"/>
             </ScrollViewer>
 
-            <DockPanel Grid.Row="2" Margin="0 8 0 0">
-                <TextBox x:Name="InputBox"
-                         Text="{Binding PendingInput, UpdateSourceTrigger=PropertyChanged}"
-                         FontFamily="Consolas"
-                         FontSize="13"
-                         Background="#FF121212"
-                         Foreground="White"
-                         BorderBrush="#FF444444"
-                         BorderThickness="1"
-                         Padding="4"
-                         AcceptsReturn="False"
-                         KeyDown="InputBox_OnKeyDown"
-                         Width="Auto"
-                         MinWidth="120"/>
-                <Button Content="Send"
-                        Margin="8 0 0 0"
-                        Padding="12 6"
-                        Command="{Binding SendInputCommand}"
-                        Style="{StaticResource TerminalButtonStyle}"/>
-            </DockPanel>
+            <TextBox x:Name="InputBox"
+                     Grid.Row="2"
+                     Margin="0 8 0 0"
+                     Text="{Binding PendingInput, UpdateSourceTrigger=PropertyChanged}"
+                     FontFamily="Consolas"
+                     FontSize="13"
+                     Background="#FF121212"
+                     Foreground="White"
+                     BorderBrush="#FF444444"
+                     BorderThickness="1"
+                     Padding="4"
+                     MinHeight="32"
+                     AcceptsReturn="True"
+                     KeyDown="InputBox_OnKeyDown"
+                     Width="Auto"
+                     MinWidth="120"/>
         </Grid>
     </Border>
 </UserControl>

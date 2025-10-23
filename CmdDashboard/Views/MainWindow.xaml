@@ -9,7 +9,8 @@
         Height="720"
         Width="1200"
         Background="#FF101010"
-        FontFamily="Segoe UI">
+    FontFamily="Segoe UI"
+    PreviewKeyDown="Window_OnPreviewKeyDown">
     <Window.InputBindings>
         <KeyBinding Modifiers="Control"
                      Key="S"

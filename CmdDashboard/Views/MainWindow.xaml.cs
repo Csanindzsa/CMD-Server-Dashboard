@@ -100,6 +100,25 @@ public partial class MainWindow : Window
         }
     }
 
+    private void Window_OnPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != Key.Delete)
+        {
+            return;
+        }
+
+        if (Keyboard.FocusedElement is System.Windows.Controls.TextBox)
+        {
+            return;
+        }
+
+        if (DataContext is MainViewModel viewModel && viewModel.DeleteSelectedNoteCommand.CanExecute(null))
+        {
+            viewModel.DeleteSelectedNoteCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+
     private void TerminalList_OnPreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         _dragStartPoint = e.GetPosition(null);

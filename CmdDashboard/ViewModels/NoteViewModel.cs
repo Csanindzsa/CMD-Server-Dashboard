@@ -12,6 +12,7 @@ public partial class NoteViewModel : ObservableObject
     private string _content;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasChanges))]
     private bool _isDirty;
 
     public bool HasChanges => IsDirty;

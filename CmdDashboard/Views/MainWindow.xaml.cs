@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using CmdDashboard.ViewModels;
 
@@ -58,6 +59,22 @@ public partial class MainWindow : Window
         if (DataContext is MainViewModel viewModel)
         {
             viewModel.UpdateVisibleNoteCapacity(e.NewSize.Width);
+        }
+    }
+
+    private void NoteTile_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel && sender is FrameworkElement { DataContext: NoteViewModel note })
+        {
+            viewModel.SelectedNote = note;
+        }
+    }
+
+    private void NoteTileTextBox_OnGotFocus(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel && sender is FrameworkElement { DataContext: NoteViewModel note })
+        {
+            viewModel.SelectedNote = note;
         }
     }
 

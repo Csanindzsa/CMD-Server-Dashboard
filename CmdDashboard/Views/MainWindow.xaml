@@ -18,35 +18,18 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <converters:ReferenceEqualsConverter x:Key="ReferenceEqualsConverter"/>
-        <Style x:Key="NoteTileButtonStyle" TargetType="Button">
+        <Style x:Key="NoteTileContainerStyle" TargetType="Border">
             <Setter Property="Background" Value="#FF1A1A1A"/>
             <Setter Property="BorderBrush" Value="#FF3A3A3A"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="Padding" Value="10"/>
             <Setter Property="Margin" Value="0 0 12 12"/>
             <Setter Property="Width" Value="220"/>
-            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="6">
-                            <ContentPresenter Margin="0"
-                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+            <Setter Property="Cursor" Value="Hand"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="BorderBrush" Value="#FF5F5F5F"/>
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#FF222222"/>
                 </Trigger>
                 <DataTrigger Value="True">
                     <DataTrigger.Binding>
@@ -175,9 +158,8 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type vm:NoteViewModel}">
-                        <Button Command="{Binding DataContext.SelectNoteCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                CommandParameter="{Binding}"
-                                Style="{StaticResource NoteTileButtonStyle}">
+                        <Border Style="{StaticResource NoteTileContainerStyle}"
+                                MouseLeftButtonDown="NoteTile_OnMouseLeftButtonDown">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -196,7 +178,7 @@
                                 </StackPanel>
                                 <TextBox Grid.Row="1"
                                          Margin="0 8 0 0"
-                                         Text="{Binding Content}"
+                                         Text="{Binding Content, UpdateSourceTrigger=PropertyChanged}"
                                          AcceptsReturn="True"
                                          TextWrapping="Wrap"
                                          Height="110"
@@ -206,12 +188,10 @@
                                          BorderThickness="1"
                                          FontFamily="Consolas"
                                          FontSize="13"
-                                         IsReadOnly="True"
-                                         IsReadOnlyCaretVisible="False"
-                                         IsHitTestVisible="False"
-                                         VerticalScrollBarVisibility="Auto"/>
+                                         VerticalScrollBarVisibility="Auto"
+                                         GotFocus="NoteTileTextBox_OnGotFocus"/>
                             </Grid>
-                        </Button>
+                        </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>

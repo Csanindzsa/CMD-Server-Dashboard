@@ -160,6 +160,11 @@
                                        FontSize="12"
                                        Margin="0 0 0 4"
                                        Visibility="{Binding HasOverflow, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            <TextBlock Text="Right-click a note to open actions. Press Delete to remove the selected note and Ctrl+S to save changes."
+                                       TextWrapping="Wrap"
+                                       Foreground="#FF8A8A8A"
+                                       FontSize="11"
+                                       Margin="0 0 0 6"/>
                             <ComboBox ItemsSource="{Binding OverflowNotes}"
                                       SelectedItem="{Binding SelectedOverflowNote, Mode=TwoWay}"
                                       DisplayMemberPath="Title"

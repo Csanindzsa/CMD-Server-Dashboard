@@ -53,7 +53,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void NotesPanel_OnSizeChanged(object sender, SizeChangedEventArgs e)
+    private void NotesTiles_OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
         if (DataContext is MainViewModel viewModel)
         {

@@ -29,10 +29,32 @@ public partial class MainViewModel : ObservableObject
     public IRelayCommand<NoteViewModel> SelectNoteCommand { get; }
 
     private int _maxVisibleNotes = 3;
+    private IReadOnlyList<NoteViewModel> _visibleNotes = Array.Empty<NoteViewModel>();
+    private IReadOnlyList<NoteViewModel> _overflowNotes = Array.Empty<NoteViewModel>();
 
-    public IEnumerable<NoteViewModel> VisibleNotes => Notes.Take(MaxVisibleNotes);
-    public IEnumerable<NoteViewModel> OverflowNotes => Notes.Skip(MaxVisibleNotes);
-    public bool HasOverflow => Notes.Count > MaxVisibleNotes;
+    public IReadOnlyList<NoteViewModel> VisibleNotes => _visibleNotes;
+    public IReadOnlyList<NoteViewModel> OverflowNotes => _overflowNotes;
+    public bool HasOverflow => _overflowNotes.Count > 0;
+
+    public NoteViewModel? SelectedOverflowNote
+    {
+        get
+        {
+            if (SelectedNote is null)
+            {
+                return null;
+            }
+
+            return _overflowNotes.Contains(SelectedNote) ? SelectedNote : null;
+        }
+        set
+        {
+            if (value != null)
+            {
+                SelectedNote = value;
+            }
+        }
+    }
 
     public int MaxVisibleNotes
     {
@@ -105,6 +127,7 @@ public partial class MainViewModel : ObservableObject
     {
         SaveSelectedNoteCommand.NotifyCanExecuteChanged();
         DeleteSelectedNoteCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(SelectedOverflowNote));
     }
 
     private void LoadNotes()
@@ -208,8 +231,11 @@ public partial class MainViewModel : ObservableObject
 
     private void RefreshNoteProjection()
     {
+        _visibleNotes = Notes.Take(MaxVisibleNotes).ToList();
+        _overflowNotes = Notes.Skip(MaxVisibleNotes).ToList();
         OnPropertyChanged(nameof(VisibleNotes));
         OnPropertyChanged(nameof(OverflowNotes));
         OnPropertyChanged(nameof(HasOverflow));
+        OnPropertyChanged(nameof(SelectedOverflowNote));
     }
 }

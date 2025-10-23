@@ -98,11 +98,7 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         Output = _buffer.ToString();
         SendRaw(command);
 
-        if (_history.Count == 0 || !_history[^1].Equals(command, StringComparison.Ordinal))
-        {
-            _history.Add(command);
-        }
-
+        _history.Add(command);
         ResetHistoryTraversal();
     }
 
@@ -177,11 +173,22 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         if (_historyIndex == -1)
         {
             _historyDraft = PendingInput;
-            _historyIndex = _history.Count - 1;
+            _historyIndex = _history.Count;
         }
-        else if (_historyIndex > 0)
+
+        if (_historyIndex > 0)
         {
             _historyIndex--;
+        }
+
+        if (_historyIndex >= _history.Count)
+        {
+            _historyIndex = _history.Count - 1;
+        }
+
+        if (_historyIndex < 0)
+        {
+            _historyIndex = 0;
         }
 
         command = _history[_historyIndex];
@@ -206,16 +213,17 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
             return true;
         }
 
-        if (_historyIndex < _history.Count - 1)
+        _historyIndex++;
+
+        if (_historyIndex >= _history.Count)
         {
-            _historyIndex++;
-            command = _history[_historyIndex];
+            command = _historyDraft ?? string.Empty;
+            _historyDraft = null;
+            _historyIndex = -1;
         }
         else
         {
-            _historyIndex = -1;
-            command = _historyDraft ?? string.Empty;
-            _historyDraft = null;
+            command = _history[_historyIndex];
         }
 
         _isRecalling = true;
@@ -224,7 +232,7 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
 
     private void ResetHistoryTraversal()
     {
-        _historyIndex = -1;
-        _historyDraft = string.Empty;
+    _historyIndex = -1;
+    _historyDraft = string.Empty;
     }
 }

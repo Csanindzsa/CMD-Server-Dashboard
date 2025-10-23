@@ -83,13 +83,17 @@
                             CornerRadius="6"
                             Padding="10">
                         <StackPanel>
+                            <TextBlock Text="Hidden notes"
+                                       Foreground="#FFAAAAAA"
+                                       FontSize="12"
+                                       Margin="0 0 0 4"
+                                       Visibility="{Binding HasOverflow, Converter={StaticResource BoolToVisibilityConverter}}"/>
                             <ComboBox ItemsSource="{Binding OverflowNotes}"
                                       SelectedItem="{Binding SelectedOverflowNote, Mode=TwoWay}"
                                       DisplayMemberPath="Title"
                                       Background="#FF121212"
                                       Foreground="White"
                                       BorderBrush="#FF3F3F3F"
-                                      Margin="0 0 0 8"
                                       Visibility="{Binding HasOverflow, Converter={StaticResource BoolToVisibilityConverter}}"
                                       IsEditable="True"
                                       TextSearch.TextPath="Title">
@@ -113,33 +117,6 @@
                                     </Style>
                                 </ComboBox.Resources>
                             </ComboBox>
-                            <StackPanel Orientation="Horizontal">
-                                <Button Content="New"
-                                        Width="60"
-                                        Command="{Binding AddNoteCommand}"
-                                        Style="{StaticResource TerminalButtonStyle}"
-                                        Margin="0 0 8 0"/>
-                                <Button Content="Save"
-                                        Width="60"
-                                        Command="{Binding SaveSelectedNoteCommand}"
-                                        Style="{StaticResource TerminalButtonStyle}"
-                                        Margin="0 0 8 0"/>
-                                <Button Content="Delete"
-                                        Width="60"
-                                        Command="{Binding DeleteSelectedNoteCommand}"
-                                        Style="{StaticResource TerminalButtonStyle}"/>
-                            </StackPanel>
-                            <TextBox Text="{Binding SelectedNote.Content, UpdateSourceTrigger=PropertyChanged}"
-                                     AcceptsReturn="True"
-                                     VerticalScrollBarVisibility="Auto"
-                                     FontFamily="Consolas"
-                                     FontSize="13"
-                                     Height="150"
-                                     Background="#FF121212"
-                                     Foreground="White"
-                                     BorderBrush="#FF3F3F3F"
-                                     BorderThickness="1"
-                                     Margin="0 8 0 0"/>
                         </StackPanel>
                     </Border>
                 </Expander>
@@ -159,7 +136,22 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type vm:NoteViewModel}">
                         <Border Style="{StaticResource NoteTileContainerStyle}"
-                                MouseLeftButtonDown="NoteTile_OnMouseLeftButtonDown">
+                                MouseLeftButtonDown="NoteTile_OnMouseLeftButtonDown"
+                                PreviewMouseRightButtonDown="NoteTile_OnPreviewMouseRightButtonDown"
+                                ContextMenuOpening="NoteTile_OnContextMenuOpening">
+                            <Border.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="New Note"
+                                              Command="{Binding AddNoteCommand}"/>
+                                    <MenuItem Header="Save"
+                                              Command="{Binding SaveSelectedNoteCommand}"/>
+                                    <MenuItem Header="Clear"
+                                              Command="{Binding ClearSelectedNoteCommand}"/>
+                                    <Separator/>
+                                    <MenuItem Header="Delete"
+                                              Command="{Binding DeleteSelectedNoteCommand}"/>
+                                </ContextMenu>
+                            </Border.ContextMenu>
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -178,7 +170,7 @@
                                 </StackPanel>
                                 <TextBox Grid.Row="1"
                                          Margin="0 8 0 0"
-                                         Text="{Binding Content, UpdateSourceTrigger=PropertyChanged}"
+                                         Text="{Binding Content, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                          AcceptsReturn="True"
                                          TextWrapping="Wrap"
                                          Height="110"

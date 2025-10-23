@@ -27,6 +27,7 @@ public partial class MainViewModel : ObservableObject
     public IRelayCommand SaveSelectedNoteCommand { get; }
     public IRelayCommand DeleteSelectedNoteCommand { get; }
     public IRelayCommand<NoteViewModel> SelectNoteCommand { get; }
+    public IRelayCommand ClearSelectedNoteCommand { get; }
 
     private int _maxVisibleNotes = 3;
     private IReadOnlyList<NoteViewModel> _visibleNotes = Array.Empty<NoteViewModel>();
@@ -81,7 +82,8 @@ public partial class MainViewModel : ObservableObject
         CloseSessionCommand = new RelayCommand<TerminalSessionViewModel>(CloseSession, session => session != null);
         AddNoteCommand = new RelayCommand(AddNote);
         SaveSelectedNoteCommand = new RelayCommand(SaveSelectedNote, CanSaveSelectedNote);
-        DeleteSelectedNoteCommand = new RelayCommand(DeleteSelectedNote, () => SelectedNote != null);
+        DeleteSelectedNoteCommand = new RelayCommand(DeleteSelectedNote, CanDeleteSelectedNote);
+        ClearSelectedNoteCommand = new RelayCommand(ClearSelectedNote, CanClearSelectedNote);
         SelectNoteCommand = new RelayCommand<NoteViewModel>(note =>
         {
             if (note != null)
@@ -127,6 +129,7 @@ public partial class MainViewModel : ObservableObject
     {
         SaveSelectedNoteCommand.NotifyCanExecuteChanged();
         DeleteSelectedNoteCommand.NotifyCanExecuteChanged();
+        ClearSelectedNoteCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(SelectedOverflowNote));
     }
 
@@ -179,6 +182,8 @@ public partial class MainViewModel : ObservableObject
         _notesService.SaveNote(SelectedNote.FileName, SelectedNote.Content);
         SelectedNote.MarkSaved();
         SaveSelectedNoteCommand.NotifyCanExecuteChanged();
+        DeleteSelectedNoteCommand.NotifyCanExecuteChanged();
+        ClearSelectedNoteCommand.NotifyCanExecuteChanged();
     }
 
     private bool CanSaveSelectedNote()
@@ -186,9 +191,24 @@ public partial class MainViewModel : ObservableObject
         return SelectedNote?.HasChanges == true;
     }
 
-    private void DeleteSelectedNote()
+    private bool CanClearSelectedNote()
+    {
+        return SelectedNote != null;
+    }
+
+    private void ClearSelectedNote()
     {
         if (SelectedNote is null)
+        {
+            return;
+        }
+
+        SelectedNote.Content = string.Empty;
+    }
+
+    private void DeleteSelectedNote()
+    {
+        if (SelectedNote is null || !CanDeleteSelectedNote())
         {
             return;
         }
@@ -207,6 +227,17 @@ public partial class MainViewModel : ObservableObject
 
         var nextIndex = index >= Notes.Count ? Notes.Count - 1 : index;
         SelectedNote = Notes[nextIndex];
+    }
+
+    private bool CanDeleteSelectedNote()
+    {
+        return SelectedNote is { } note && !IsProtectedNote(note);
+    }
+
+    private static bool IsProtectedNote(NoteViewModel note)
+    {
+        return string.Equals(note.FileName, "note-1.txt", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(note.Title, "Note 1", StringComparison.OrdinalIgnoreCase);
     }
 
     public void UpdateVisibleNoteCapacity(double availableWidth)

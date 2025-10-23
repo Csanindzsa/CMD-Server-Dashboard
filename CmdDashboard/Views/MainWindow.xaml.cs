@@ -70,6 +70,28 @@ public partial class MainWindow : Window
         }
     }
 
+    private void NoteTile_OnPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel && sender is FrameworkElement { DataContext: NoteViewModel note })
+        {
+            viewModel.SelectedNote = note;
+        }
+    }
+
+    private void NoteTile_OnContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel)
+        {
+            return;
+        }
+
+        if (sender is FrameworkElement { DataContext: NoteViewModel note } element && element.ContextMenu is { } menu)
+        {
+            viewModel.SelectedNote = note;
+            menu.DataContext = viewModel;
+        }
+    }
+
     private void NoteTileTextBox_OnGotFocus(object sender, RoutedEventArgs e)
     {
         if (DataContext is MainViewModel viewModel && sender is FrameworkElement { DataContext: NoteViewModel note })

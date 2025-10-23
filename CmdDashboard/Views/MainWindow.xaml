@@ -149,17 +149,67 @@
                           Foreground="White"
                           Background="Transparent"
                           Width="280">
+                    <Expander.Resources>
+                        <Style TargetType="ToggleButton">
+                            <Setter Property="Foreground" Value="White"/>
+                            <Setter Property="Background" Value="#FF1A1A1A"/>
+                            <Setter Property="BorderBrush" Value="#FF3A3A3A"/>
+                            <Setter Property="BorderThickness" Value="1"/>
+                            <Setter Property="Padding" Value="12 8"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="HeaderBorder"
+                                                Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                CornerRadius="6">
+                                            <DockPanel>
+                                                <Path x:Name="Chevron"
+                                                      Width="10"
+                                                      Height="10"
+                                                      Margin="6 0 8 0"
+                                                      VerticalAlignment="Center"
+                                                      Fill="White"
+                                                      Stretch="Fill"
+                                                      Data="M 0 0 L 8 0 L 4 5 Z">
+                                                    <Path.RenderTransform>
+                                                        <RotateTransform Angle="0" CenterX="4" CenterY="2.5"/>
+                                                    </Path.RenderTransform>
+                                                </Path>
+                                                <ContentPresenter HorizontalAlignment="Left"
+                                                                  VerticalAlignment="Center"
+                                                                  TextElement.Foreground="{TemplateBinding Foreground}"/>
+                                            </DockPanel>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="Chevron" Property="RenderTransform">
+                                                    <Setter.Value>
+                                                        <RotateTransform Angle="180" CenterX="4" CenterY="2.5"/>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Trigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="HeaderBorder" Property="BorderBrush" Value="#FF5F5F5F"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="HeaderBorder" Property="Background" Value="#FF222222"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Expander.Resources>
                     <Border Background="#FF1A1A1A"
                             BorderBrush="#FF3A3A3A"
                             BorderThickness="1"
                             CornerRadius="6"
                             Padding="10">
                         <StackPanel>
-                            <TextBlock Text="Hidden notes"
-                                       Foreground="#FFAAAAAA"
-                                       FontSize="12"
-                                       Margin="0 0 0 4"
-                                       Visibility="{Binding HasOverflow, Converter={StaticResource BoolToVisibilityConverter}}"/>
                             <TextBlock Text="Right-click a note to open actions. Press Delete to remove the selected note and Ctrl+S to save changes."
                                        TextWrapping="Wrap"
                                        Foreground="#FF8A8A8A"
@@ -168,9 +218,7 @@
                             <ComboBox ItemsSource="{Binding OverflowNotes}"
                                       SelectedItem="{Binding SelectedOverflowNote, Mode=TwoWay}"
                                       DisplayMemberPath="Title"
-                                      Background="#FF121212"
                                       Foreground="White"
-                                      BorderBrush="#FF3F3F3F"
                                       Visibility="{Binding HasOverflow, Converter={StaticResource BoolToVisibilityConverter}}"
                                       IsEditable="True"
                                       TextSearch.TextPath="Title">
@@ -181,16 +229,155 @@
                                     </Style>
                                 </ComboBox.ItemContainerStyle>
                                 <ComboBox.Resources>
+                                    <Style TargetType="ComboBox">
+                                        <Setter Property="Background" Value="#FF121212"/>
+                                        <Setter Property="BorderBrush" Value="#FF3F3F3F"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ComboBox">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Border x:Name="Border"
+                                                                Background="{TemplateBinding Background}"
+                                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                                BorderThickness="1"
+                                                                CornerRadius="4"
+                                                                Grid.ColumnSpan="2"/>
+                                                        <ToggleButton x:Name="ToggleButton"
+                                                                      Grid.Column="1"
+                                                                      Background="Transparent"
+                                                                      BorderBrush="Transparent"
+                                                                      Focusable="False"
+                                                                      ClickMode="Press"
+                                                                      IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                                                            <ToggleButton.Template>
+                                                                <ControlTemplate TargetType="ToggleButton">
+                                                                    <Border Background="Transparent"
+                                                                            Padding="4">
+                                                                        <Path x:Name="Chevron"
+                                                                              Data="M 0 0 L 6 0 L 3 4 Z"
+                                                                              Fill="White"
+                                                                              Width="6"
+                                                                              Height="4"
+                                                                              HorizontalAlignment="Center"
+                                                                              VerticalAlignment="Center">
+                                                                            <Path.RenderTransform>
+                                                                                <RotateTransform Angle="0" CenterX="3" CenterY="2"/>
+                                                                            </Path.RenderTransform>
+                                                                        </Path>
+                                                                    </Border>
+                                                                    <ControlTemplate.Triggers>
+                                                                        <Trigger Property="IsChecked" Value="True">
+                                                                            <Setter TargetName="Chevron" Property="RenderTransform">
+                                                                                <Setter.Value>
+                                                                                    <RotateTransform Angle="180" CenterX="3" CenterY="2"/>
+                                                                                </Setter.Value>
+                                                                            </Setter>
+                                                                        </Trigger>
+                                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                                            <Setter Property="Background" Value="#FF1F1F1F"/>
+                                                                        </Trigger>
+                                                                    </ControlTemplate.Triggers>
+                                                                </ControlTemplate>
+                                                            </ToggleButton.Template>
+                                                        </ToggleButton>
+                                                        <ContentPresenter Margin="6 3 24 3"
+                                                                          HorizontalAlignment="Left"
+                                                                          VerticalAlignment="Center"
+                                                                          RecognizesAccessKey="True"
+                                                                          Content="{TemplateBinding SelectionBoxItem}"
+                                                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"/>
+                                                        <Popup x:Name="Popup"
+                                                               Placement="Bottom"
+                                                               IsOpen="{TemplateBinding IsDropDownOpen}"
+                                                               AllowsTransparency="True"
+                                                               Focusable="False"
+                                                               PopupAnimation="Slide">
+                                                            <Border Background="#FF1A1A1A"
+                                                                    BorderBrush="#FF3F3F3F"
+                                                                    BorderThickness="1"
+                                                                    CornerRadius="4">
+                                                                <ScrollViewer CanContentScroll="True"
+                                                                              Margin="0">
+                                                                    <ItemsPresenter Margin="0"/>
+                                                                </ScrollViewer>
+                                                            </Border>
+                                                        </Popup>
+                                                    </Grid>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsDropDownOpen" Value="True">
+                                                            <Setter TargetName="Border" Property="BorderBrush" Value="#FF5F5F5F"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
                                     <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#FF121212"/>
                                     <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#FF121212"/>
                                     <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#FF2F6FED"/>
                                     <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="White"/>
+                                    <Style TargetType="ToggleButton">
+                                        <Setter Property="Background" Value="#FF121212"/>
+                                        <Setter Property="BorderBrush" Value="#FF3F3F3F"/>
+                                        <Setter Property="BorderThickness" Value="1"/>
+                                        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ToggleButton">
+                                                    <Border x:Name="ToggleBorder"
+                                                            Background="{TemplateBinding Background}"
+                                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                                            CornerRadius="4"
+                                                            Padding="4">
+                                                        <Path x:Name="Chevron"
+                                                              Data="M 0 0 L 6 0 L 3 4 Z"
+                                                              Fill="White"
+                                                              Stretch="Uniform"
+                                                              HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="ToggleBorder" Property="Background" Value="#FF1F1F1F"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsPressed" Value="True">
+                                                            <Setter TargetName="ToggleBorder" Property="Background" Value="#FF242424"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsChecked" Value="True">
+                                                            <Setter TargetName="Chevron" Property="RenderTransform">
+                                                                <Setter.Value>
+                                                                    <RotateTransform Angle="180" CenterX="3" CenterY="2"/>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
                                     <Style TargetType="TextBox">
                                         <Setter Property="Foreground" Value="White"/>
                                         <Setter Property="Background" Value="#FF121212"/>
                                         <Setter Property="BorderBrush" Value="#FF3F3F3F"/>
                                         <Setter Property="BorderThickness" Value="0"/>
                                         <Setter Property="Padding" Value="2"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="TextBox">
+                                                    <Border Background="{TemplateBinding Background}"
+                                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                                            BorderThickness="{TemplateBinding BorderThickness}">
+                                                        <ScrollViewer x:Name="PART_ContentHost"
+                                                                      Background="Transparent"/>
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
                                     </Style>
                                 </ComboBox.Resources>
                             </ComboBox>

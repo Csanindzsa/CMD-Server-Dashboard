@@ -8,7 +8,25 @@
              d:DesignHeight="220"
              HorizontalAlignment="Stretch"
              VerticalAlignment="Stretch">
-    <Border BorderBrush="#FF444444" BorderThickness="1" CornerRadius="6" Background="#FF1E1E1E" Padding="8">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    </UserControl.Resources>
+    <Border>
+        <Border.Style>
+            <Style TargetType="Border">
+                <Setter Property="BorderBrush" Value="#FF444444"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="Background" Value="#FF1E1E1E"/>
+                <Setter Property="Padding" Value="8"/>
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsInteractive}" Value="False">
+                        <Setter Property="Opacity" Value="0.55"/>
+                        <Setter Property="ToolTip" Value="Run the application as administrator to interact with this terminal."/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Border.Style>
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -30,6 +48,11 @@
                     </Ellipse.Style>
                 </Ellipse>
                 <TextBlock Text="{Binding Title}" FontWeight="SemiBold" Foreground="White" Margin="0 0 8 0"/>
+                <TextBlock Text="(Admin)"
+                           Foreground="#FFEDA150"
+                           FontWeight="SemiBold"
+                           Margin="0 0 8 0"
+                           Visibility="{Binding RunAsAdministrator, Converter={StaticResource BoolToVisibilityConverter}}"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" DockPanel.Dock="Right">
                     <Button Content="Copy" Click="CopyButton_OnClick" Style="{StaticResource TerminalButtonStyle}" Margin="0 0 4 0"/>
                     <Button Content="Clear" Command="{Binding ClearOutputCommand}" Style="{StaticResource TerminalButtonStyle}" Margin="0 0 4 0"/>
@@ -43,7 +66,7 @@
             </DockPanel>
 
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" x:Name="ScrollViewer">
-                <TextBox Text="{Binding Output}" IsReadOnly="True" TextWrapping="Wrap" Background="#FF121212" Foreground="#FFEEEEEE" BorderThickness="0" FontFamily="Consolas" FontSize="13" AcceptsReturn="True" TextChanged="OutputBox_OnTextChanged" PreviewMouseDoubleClick="OutputBox_OnMouseDoubleClick"/>
+                <TextBox Text="{Binding Output}" IsReadOnly="True" TextWrapping="Wrap" Background="#FF121212" Foreground="#FFEEEEEE" BorderThickness="0" FontFamily="Consolas" FontSize="13" AcceptsReturn="True" TextChanged="OutputBox_OnTextChanged"/>
             </ScrollViewer>
 
             <TextBox x:Name="InputBox"
@@ -59,6 +82,7 @@
                      Padding="4"
                      MinHeight="32"
                      AcceptsReturn="True"
+                     IsEnabled="{Binding IsInteractive}"
                      KeyDown="InputBox_OnKeyDown"
                      Width="Auto"
                      MinWidth="120"/>

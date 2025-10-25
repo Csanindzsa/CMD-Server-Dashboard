@@ -13,11 +13,34 @@ public partial class MainWindow : Window
 {
     private System.Windows.Point _dragStartPoint;
     private bool _isDragging;
+    private bool _dragFromTextContent;
+    private static bool _startupNotificationShown;
 
     public MainWindow()
     {
         InitializeComponent();
         DataContext = new MainViewModel();
+        Loaded += MainWindow_OnLoaded;
+    }
+
+    private void MainWindow_OnLoaded(object sender, RoutedEventArgs e)
+    {
+        if (_startupNotificationShown)
+        {
+            return;
+        }
+
+        _startupNotificationShown = true;
+
+        var message = App.IsRunningAsAdministrator
+            ? "Command Dashboard is running with administrator privileges. All terminals will launch elevated."
+            : "Command Dashboard is running without administrator privileges. Launch the app as admin to create elevated terminals.";
+
+        System.Windows.MessageBox.Show(this,
+            message,
+            "Command Dashboard",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
     }
 
     protected override void OnClosing(CancelEventArgs e)
@@ -50,7 +73,7 @@ public partial class MainWindow : Window
 
         var suggestedTitle = $"Terminal {viewModel.Sessions.Count + 1}";
         string? defaultDirectory = TryResolveStartupDirectory();
-        dialog.Initialize(suggestedTitle, defaultDirectory);
+        dialog.Initialize(suggestedTitle, defaultDirectory, App.IsRunningAsAdministrator);
 
         var result = dialog.ShowDialog();
         if (result == true && dialog.SessionOptions is { } options)
@@ -147,12 +170,25 @@ public partial class MainWindow : Window
 
     private void TerminalList_OnPreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
+        _dragFromTextContent = false;
+
+    if (e.OriginalSource is DependencyObject source && FindAncestor<System.Windows.Controls.Primitives.TextBoxBase>(source) != null)
+        {
+            _dragFromTextContent = true;
+            return;
+        }
+
         _dragStartPoint = e.GetPosition(null);
         _isDragging = false;
     }
 
     private void TerminalList_OnPreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
     {
+    if (_dragFromTextContent)
+        {
+            return;
+        }
+
     if (e.LeftButton != System.Windows.Input.MouseButtonState.Pressed)
         {
             return;
@@ -183,6 +219,7 @@ public partial class MainWindow : Window
     private void TerminalList_OnDrop(object sender, System.Windows.DragEventArgs e)
     {
         _isDragging = false;
+        _dragFromTextContent = false;
 
     if (DataContext is not MainViewModel viewModel || sender is not System.Windows.Controls.ListBox listBox)
         {

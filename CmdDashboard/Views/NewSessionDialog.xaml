@@ -15,6 +15,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto"/>
@@ -36,13 +37,21 @@
         <Button Content="Browse" Grid.Row="1" Grid.Column="2" Margin="0 0 0 12" Padding="12 6" Click="BrowseButton_OnClick" Style="{StaticResource TerminalButtonStyle}"/>
 
         <TextBlock Text="Startup command" Grid.Row="2" Grid.Column="0" Margin="0 0 12 12" VerticalAlignment="Top"/>
-    <TextBox x:Name="StartupCommandBox" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
+        <TextBox x:Name="StartupCommandBox" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
          Margin="0 0 0 12"
          Background="#FF121212" BorderBrush="#FF3F3F3F" BorderThickness="1" Foreground="White"
                  Padding="6" FontSize="14"
                  AcceptsReturn="True" Height="120" TextWrapping="Wrap"/>
 
-        <StackPanel Orientation="Horizontal" Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" HorizontalAlignment="Right">
+        <CheckBox x:Name="AdminCheckBox"
+                  Grid.Row="3"
+                  Grid.Column="0"
+                  Grid.ColumnSpan="3"
+                  Margin="0 0 0 12"
+                  Content="Run terminal as administrator"
+                  Foreground="White"/>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3" HorizontalAlignment="Right">
             <Button Content="Cancel" Width="90" Padding="12 6" Margin="0 0 12 0" IsCancel="True" Style="{StaticResource TerminalButtonStyle}"/>
             <Button Content="Create" Width="90" Padding="12 6" IsDefault="True" Click="CreateButton_OnClick" Style="{StaticResource TerminalButtonStyle}"/>
         </StackPanel>

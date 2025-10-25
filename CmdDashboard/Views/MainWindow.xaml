@@ -212,7 +212,7 @@
                             CornerRadius="6"
                             Padding="10">
                         <StackPanel>
-                            <TextBlock Text="Right-click a note to open actions. Press Delete to remove the selected note and Ctrl+S to save changes. Double-click the terminal output to clear all user data."
+                            <TextBlock Text="Right-click a note to open actions. Press Delete to remove the selected note and Ctrl+S to save changes. Double-click the app title to clear all user data."
                                        TextWrapping="Wrap"
                                        Foreground="#FF8A8A8A"
                                        FontSize="11"

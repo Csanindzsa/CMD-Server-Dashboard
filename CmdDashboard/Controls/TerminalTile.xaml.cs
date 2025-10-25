@@ -1,6 +1,5 @@
 using System.Windows;
 using CmdDashboard.ViewModels;
-using CmdDashboard.Views;
 
 namespace CmdDashboard.Controls;
 
@@ -15,6 +14,12 @@ public partial class TerminalTile : System.Windows.Controls.UserControl
     {
         if (DataContext is not TerminalSessionViewModel vm)
         {
+            return;
+        }
+
+        if (!vm.IsInteractive)
+        {
+            e.Handled = true;
             return;
         }
 
@@ -81,15 +86,6 @@ public partial class TerminalTile : System.Windows.Controls.UserControl
         if (DataContext is TerminalSessionViewModel vm && !string.IsNullOrEmpty(vm.Output))
         {
             System.Windows.Clipboard.SetText(vm.Output);
-        }
-    }
-
-    private void OutputBox_OnMouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
-    {
-        if (Window.GetWindow(this) is MainWindow mainWindow)
-        {
-            mainWindow.RequestClearAllUserData();
-            e.Handled = true;
         }
     }
 }

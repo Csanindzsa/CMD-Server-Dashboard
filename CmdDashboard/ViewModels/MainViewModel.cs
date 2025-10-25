@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
+using System.Windows;
 using CmdDashboard.Models;
 using CmdDashboard.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -107,7 +108,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         var session = TerminalSessionViewModel.CreateInteractive(
             options.Title,
             options.WorkingDirectory,
-            options.StartupCommand);
+            options.StartupCommand,
+            options.RunAsAdministrator);
         Sessions.Add(session);
         SelectedSession = session;
         SaveTerminalState();
@@ -190,13 +192,29 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private void LoadTerminalSessions()
     {
+        var readOnlyElevatedSessions = false;
         foreach (var snapshot in _terminalStateService.LoadSessions())
         {
-            var session = TerminalSessionViewModel.Restore(snapshot);
+            var requiresElevation = snapshot.RunAsAdministrator && !App.IsRunningAsAdministrator;
+            var session = TerminalSessionViewModel.Restore(snapshot, interactive: !requiresElevation);
+            if (requiresElevation)
+            {
+                readOnlyElevatedSessions = true;
+            }
+
             Sessions.Add(session);
         }
 
         SelectedSession = Sessions.FirstOrDefault();
+
+        if (readOnlyElevatedSessions)
+        {
+            System.Windows.MessageBox.Show(
+                "Administrator terminals from previous sessions have been restored in read-only mode. Restart the application with administrator privileges to fully interact with them.",
+                "Administrator Terminals",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
     }
 
     private void AttachNote(NoteViewModel note)

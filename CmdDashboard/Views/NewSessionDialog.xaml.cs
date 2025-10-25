@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using CmdDashboard.Models;
+using CmdDashboard;
 using Forms = System.Windows.Forms;
 
 namespace CmdDashboard.Views;
@@ -14,12 +15,24 @@ public partial class NewSessionDialog : Window
 
     public NewSessionOptions? SessionOptions { get; private set; }
 
-    public void Initialize(string suggestedTitle, string? defaultDirectory)
+    public void Initialize(string suggestedTitle, string? defaultDirectory, bool isAppElevated)
     {
         TitleBox.Text = suggestedTitle;
         DirectoryBox.Text = defaultDirectory ?? string.Empty;
         TitleBox.Focus();
         TitleBox.SelectAll();
+
+        if (isAppElevated)
+        {
+            AdminCheckBox.IsChecked = true;
+            AdminCheckBox.IsEnabled = false;
+            AdminCheckBox.Content = "Run terminal as administrator (application is elevated)";
+        }
+        else
+        {
+            AdminCheckBox.IsChecked = false;
+            AdminCheckBox.IsEnabled = true;
+        }
     }
 
     private void BrowseButton_OnClick(object sender, RoutedEventArgs e)
@@ -57,7 +70,23 @@ public partial class NewSessionDialog : Window
         }
 
         var startupCommand = StartupCommandBox.Text.Trim();
-        SessionOptions = new NewSessionOptions(title, string.IsNullOrWhiteSpace(directory) ? null : directory, string.IsNullOrWhiteSpace(startupCommand) ? null : startupCommand);
+        var runAsAdmin = AdminCheckBox.IsChecked == true;
+
+        if (runAsAdmin && !App.IsRunningAsAdministrator)
+        {
+            System.Windows.MessageBox.Show(this,
+                "Elevated terminals require the Command Dashboard application to run as administrator.",
+                "Administrator Required",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        SessionOptions = new NewSessionOptions(
+            title,
+            string.IsNullOrWhiteSpace(directory) ? null : directory,
+            string.IsNullOrWhiteSpace(startupCommand) ? null : startupCommand,
+            runAsAdmin || App.IsRunningAsAdministrator);
         DialogResult = true;
     }
 }

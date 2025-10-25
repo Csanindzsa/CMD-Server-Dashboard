@@ -1,14 +1,40 @@
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using CmdDashboard;
 
 namespace CmdDashboard.Services;
 
 public sealed class TerminalProcessHost : IDisposable
 {
+    static TerminalProcessHost()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+    }
+
+    private static Encoding ResolveTerminalEncoding()
+    {
+        try
+        {
+            return Encoding.GetEncoding(CultureInfo.CurrentCulture.TextInfo.OEMCodePage);
+        }
+        catch (NotSupportedException)
+        {
+            try
+            {
+                return Console.OutputEncoding;
+            }
+            catch
+            {
+                return Encoding.UTF8;
+            }
+        }
+    }
+
     private readonly Process _process;
     private readonly Task _outputPumpTask;
     private readonly Task _errorPumpTask;
@@ -28,19 +54,33 @@ public sealed class TerminalProcessHost : IDisposable
         _process.Exited += (_, _) => Exited?.Invoke(_process.ExitCode);
     }
 
-    public static TerminalProcessHost Start(string? workingDirectory = null)
+    public static TerminalProcessHost Start(string? workingDirectory = null, bool runAsAdministrator = false)
     {
+        if (runAsAdministrator && !App.IsRunningAsAdministrator)
+        {
+            throw new InvalidOperationException("Administrator privileges are required to create an elevated terminal.");
+        }
+
+        var interpreterPath = Environment.GetEnvironmentVariable("COMSPEC");
+        if (string.IsNullOrWhiteSpace(interpreterPath) || !interpreterPath.EndsWith("cmd.exe", StringComparison.OrdinalIgnoreCase) || !File.Exists(interpreterPath))
+        {
+            interpreterPath = Path.Combine(Environment.SystemDirectory, "cmd.exe");
+        }
+
+    var oemEncoding = ResolveTerminalEncoding();
+
         var startInfo = new ProcessStartInfo
         {
-            FileName = Environment.GetEnvironmentVariable("COMSPEC") ?? "cmd.exe",
+            FileName = interpreterPath,
             Arguments = "/K",
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
+            StandardInputEncoding = oemEncoding,
+            StandardOutputEncoding = oemEncoding,
+            StandardErrorEncoding = oemEncoding,
             WorkingDirectory = string.IsNullOrWhiteSpace(workingDirectory)
                 ? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
                 : workingDirectory

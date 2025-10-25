@@ -1,3 +1,3 @@
 namespace CmdDashboard.Models;
 
-public record NewSessionOptions(string Title, string? WorkingDirectory, string? StartupCommand);
+public record NewSessionOptions(string Title, string? WorkingDirectory, string? StartupCommand, bool RunAsAdministrator);

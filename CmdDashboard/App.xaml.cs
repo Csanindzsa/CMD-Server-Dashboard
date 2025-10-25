@@ -2,11 +2,28 @@ using System;
 using System.IO;
 using System.Runtime.ExceptionServices;
 using System.Windows.Threading;
+using System.Security.Principal;
 
 namespace CmdDashboard;
 
 public partial class App : System.Windows.Application
 {
+	public static bool IsRunningAsAdministrator { get; private set; }
+
+	static App()
+	{
+		try
+		{
+			using var identity = WindowsIdentity.GetCurrent();
+			var principal = new WindowsPrincipal(identity);
+			IsRunningAsAdministrator = principal.IsInRole(WindowsBuiltInRole.Administrator);
+		}
+		catch
+		{
+			IsRunningAsAdministrator = false;
+		}
+	}
+
 	protected override void OnStartup(System.Windows.StartupEventArgs e)
 	{
 		DispatcherUnhandledException += OnDispatcherUnhandledException;

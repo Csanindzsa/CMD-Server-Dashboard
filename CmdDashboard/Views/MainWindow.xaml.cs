@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -17,6 +18,22 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = new MainViewModel();
+    }
+
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        base.OnClosing(e);
+
+        if (e.Cancel)
+        {
+            return;
+        }
+
+        if (DataContext is MainViewModel viewModel)
+        {
+            viewModel.SaveTerminalState();
+            viewModel.Dispose();
+        }
     }
 
     private void NewTerminalButton_OnClick(object sender, RoutedEventArgs e)
@@ -100,6 +117,15 @@ public partial class MainWindow : Window
         }
     }
 
+    private void Title_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount == 2)
+        {
+            RequestClearAllUserData();
+            e.Handled = true;
+        }
+    }
+
     private void Window_OnPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (e.Key != Key.Delete)
@@ -107,7 +133,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (Keyboard.FocusedElement is System.Windows.Controls.TextBox)
+        if (Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase)
         {
             return;
         }
@@ -197,6 +223,25 @@ public partial class MainWindow : Window
 
         viewModel.Sessions.Move(oldIndex, newIndex);
         e.Handled = true;
+    }
+
+    public void RequestClearAllUserData()
+    {
+        if (DataContext is not MainViewModel viewModel)
+        {
+            return;
+        }
+
+        var result = System.Windows.MessageBox.Show(this,
+            "Do you really want to delete all user data?",
+            "Command Dashboard",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (result == MessageBoxResult.Yes)
+        {
+            viewModel.ClearAllUserData();
+        }
     }
 
     private static T? FindAncestor<T>(DependencyObject? current) where T : DependencyObject

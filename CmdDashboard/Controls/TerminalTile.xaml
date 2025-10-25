@@ -43,7 +43,7 @@
             </DockPanel>
 
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" x:Name="ScrollViewer">
-                <TextBox Text="{Binding Output}" IsReadOnly="True" TextWrapping="Wrap" Background="#FF121212" Foreground="#FFEEEEEE" BorderThickness="0" FontFamily="Consolas" FontSize="13" AcceptsReturn="True" TextChanged="OutputBox_OnTextChanged"/>
+                <TextBox Text="{Binding Output}" IsReadOnly="True" TextWrapping="Wrap" Background="#FF121212" Foreground="#FFEEEEEE" BorderThickness="0" FontFamily="Consolas" FontSize="13" AcceptsReturn="True" TextChanged="OutputBox_OnTextChanged" PreviewMouseDoubleClick="OutputBox_OnMouseDoubleClick"/>
             </ScrollViewer>
 
             <TextBox x:Name="InputBox"

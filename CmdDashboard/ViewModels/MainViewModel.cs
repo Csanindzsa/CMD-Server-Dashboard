@@ -11,7 +11,7 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace CmdDashboard.ViewModels;
 
-public partial class MainViewModel : ObservableObject
+public partial class MainViewModel : ObservableObject, IDisposable
 {
     public ObservableCollection<TerminalSessionViewModel> Sessions { get; } = new();
     public ObservableCollection<NoteViewModel> Notes { get; } = new();
@@ -75,10 +75,13 @@ public partial class MainViewModel : ObservableObject
     }
 
     private readonly NotesService _notesService;
+    private readonly TerminalStateService _terminalStateService;
+    private bool _isDisposed;
 
     public MainViewModel()
     {
         _notesService = new NotesService();
+        _terminalStateService = new TerminalStateService();
         CloseSessionCommand = new RelayCommand<TerminalSessionViewModel>(CloseSession, session => session != null);
         AddNoteCommand = new RelayCommand(AddNote);
         SaveSelectedNoteCommand = new RelayCommand(SaveSelectedNote, CanSaveSelectedNote);
@@ -96,6 +99,7 @@ public partial class MainViewModel : ObservableObject
 
         LoadNotes();
         RefreshNoteProjection();
+        LoadTerminalSessions();
     }
 
     public TerminalSessionViewModel AddSession(NewSessionOptions options)
@@ -106,7 +110,13 @@ public partial class MainViewModel : ObservableObject
             options.StartupCommand);
         Sessions.Add(session);
         SelectedSession = session;
+        SaveTerminalState();
         return session;
+    }
+
+    public void SaveTerminalState()
+    {
+        _terminalStateService.SaveSessions(Sessions.Select(session => session.Capture()));
     }
 
     private void CloseSession(TerminalSessionViewModel? session)
@@ -123,6 +133,39 @@ public partial class MainViewModel : ObservableObject
         {
             SelectedSession = Sessions.LastOrDefault();
         }
+
+        SaveTerminalState();
+    }
+
+    public void ClearAllUserData()
+    {
+        var sessionsCopy = Sessions.ToList();
+        foreach (var terminal in sessionsCopy)
+        {
+            terminal.Dispose();
+        }
+        Sessions.Clear();
+        SelectedSession = null;
+        _terminalStateService.Clear();
+
+        var notesCopy = Notes.ToList();
+        foreach (var note in notesCopy)
+        {
+            DetachNote(note);
+        }
+
+        Notes.Clear();
+        var defaultNote = _notesService.ResetToDefaultNote();
+        var defaultViewModel = new NoteViewModel(defaultNote.Title, defaultNote.FileName, defaultNote.Content);
+        AttachNote(defaultViewModel);
+        Notes.Add(defaultViewModel);
+        SelectedNote = defaultViewModel;
+
+        RefreshNoteProjection();
+        SaveSelectedNoteCommand.NotifyCanExecuteChanged();
+        DeleteSelectedNoteCommand.NotifyCanExecuteChanged();
+        ClearSelectedNoteCommand.NotifyCanExecuteChanged();
+        SaveTerminalState();
     }
 
     partial void OnSelectedNoteChanged(NoteViewModel? value)
@@ -143,6 +186,17 @@ public partial class MainViewModel : ObservableObject
         }
 
         SelectedNote = Notes.FirstOrDefault();
+    }
+
+    private void LoadTerminalSessions()
+    {
+        foreach (var snapshot in _terminalStateService.LoadSessions())
+        {
+            var session = TerminalSessionViewModel.Restore(snapshot);
+            Sessions.Add(session);
+        }
+
+        SelectedSession = Sessions.FirstOrDefault();
     }
 
     private void AttachNote(NoteViewModel note)
@@ -268,5 +322,26 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(OverflowNotes));
         OnPropertyChanged(nameof(HasOverflow));
         OnPropertyChanged(nameof(SelectedOverflowNote));
+    }
+
+    public void Dispose()
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        _isDisposed = true;
+        Notes.CollectionChanged -= NotesOnCollectionChanged;
+
+        foreach (var note in Notes)
+        {
+            DetachNote(note);
+        }
+
+        foreach (var session in Sessions)
+        {
+            session.Dispose();
+        }
     }
 }

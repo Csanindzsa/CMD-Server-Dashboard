@@ -68,6 +68,38 @@ public sealed class NotesService
         }
     }
 
+    public void ClearAll()
+    {
+        if (!Directory.Exists(_notesDirectory))
+        {
+            return;
+        }
+
+        foreach (var file in Directory.GetFiles(_notesDirectory, "*.txt"))
+        {
+            try
+            {
+                File.Delete(file);
+            }
+            catch
+            {
+                // ignored
+            }
+        }
+    }
+
+    public Models.NoteData ResetToDefaultNote()
+    {
+        ClearAll();
+
+        var fileName = "note-1.txt";
+        var title = FormatTitle(Path.GetFileNameWithoutExtension(fileName)!);
+        var path = Path.Combine(_notesDirectory, fileName);
+        File.WriteAllText(path, string.Empty);
+
+        return new Models.NoteData(title, fileName, string.Empty);
+    }
+
     private static string SanitizeFileName(string fileName)
     {
         foreach (var invalidChar in Path.GetInvalidFileNameChars())

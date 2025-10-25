@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
+using CmdDashboard.Models;
 using CmdDashboard.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -35,10 +36,15 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
     public IRelayCommand ClearOutputCommand { get; }
     public IRelayCommand StopCommand { get; }
 
-    private TerminalSessionViewModel(string title, string? workingDirectory, string? startCommand)
+    public string? WorkingDirectory { get; }
+    public string? StartupCommand { get; }
+
+    private TerminalSessionViewModel(string title, string? workingDirectory, string? startCommand, string? initialOutput, bool runStartupCommands)
     {
         _syncContext = SynchronizationContext.Current ?? new SynchronizationContext();
         _title = title;
+        WorkingDirectory = workingDirectory;
+        StartupCommand = startCommand;
         _processHost = TerminalProcessHost.Start(workingDirectory);
         _processHost.OutputReceived += AppendOutput;
         _processHost.Exited += OnExited;
@@ -47,12 +53,36 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         ClearOutputCommand = new RelayCommand(ClearOutput);
         StopCommand = new RelayCommand(StopSession, () => IsRunning);
 
-        InitializeStartupCommands(startCommand);
+        if (!string.IsNullOrEmpty(initialOutput))
+        {
+            _buffer.Append(initialOutput);
+            Output = _buffer.ToString();
+        }
+
+        if (runStartupCommands)
+        {
+            InitializeStartupCommands(startCommand);
+        }
     }
 
     public static TerminalSessionViewModel CreateInteractive(string title, string? workingDirectory = null, string? startCommand = null)
     {
-        return new TerminalSessionViewModel(title, workingDirectory, startCommand);
+        return new TerminalSessionViewModel(title, workingDirectory, startCommand, initialOutput: null, runStartupCommands: true);
+    }
+
+    public static TerminalSessionViewModel Restore(TerminalSessionSnapshot snapshot)
+    {
+        return new TerminalSessionViewModel(
+            snapshot.Title,
+            snapshot.WorkingDirectory,
+            snapshot.StartupCommand,
+            snapshot.Output,
+            runStartupCommands: false);
+    }
+
+    public TerminalSessionSnapshot Capture()
+    {
+        return new TerminalSessionSnapshot(Title, WorkingDirectory, StartupCommand, Output);
     }
 
     private bool CanSendInput() => !string.IsNullOrWhiteSpace(PendingInput);

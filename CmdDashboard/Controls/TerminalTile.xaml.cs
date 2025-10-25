@@ -1,3 +1,5 @@
+using System;
+using System.Runtime.InteropServices;
 using System.Windows;
 using CmdDashboard.ViewModels;
 
@@ -10,7 +12,7 @@ public partial class TerminalTile : System.Windows.Controls.UserControl
         InitializeComponent();
     }
 
-    private void InputBox_OnKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    private void InputBox_OnPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (DataContext is not TerminalSessionViewModel vm)
         {
@@ -30,24 +32,40 @@ public partial class TerminalTile : System.Windows.Controls.UserControl
 
         if (e.Key == System.Windows.Input.Key.Up)
         {
-            if (vm.TryRecallPrevious(out var previous))
+            if (vm.RecallPrevious())
             {
-                textBox.Text = previous;
-                textBox.CaretIndex = textBox.Text.Length;
-                textBox.ScrollToEnd();
                 e.Handled = true;
+
+                textBox.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateTarget();
+
+                var caretIndex = vm.PendingInput.Length;
+                textBox.Dispatcher.BeginInvoke(
+                    System.Windows.Threading.DispatcherPriority.Input,
+                    new Action(() =>
+                    {
+                        textBox.CaretIndex = caretIndex;
+                        textBox.ScrollToEnd();
+                    }));
             }
             return;
         }
 
         if (e.Key == System.Windows.Input.Key.Down)
         {
-            if (vm.TryRecallNext(out var next))
+            if (vm.RecallNext())
             {
-                textBox.Text = next;
-                textBox.CaretIndex = textBox.Text.Length;
-                textBox.ScrollToEnd();
                 e.Handled = true;
+
+                textBox.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateTarget();
+
+                var caretIndex = vm.PendingInput.Length;
+                textBox.Dispatcher.BeginInvoke(
+                    System.Windows.Threading.DispatcherPriority.Input,
+                    new Action(() =>
+                    {
+                        textBox.CaretIndex = caretIndex;
+                        textBox.ScrollToEnd();
+                    }));
             }
             return;
         }
@@ -85,7 +103,17 @@ public partial class TerminalTile : System.Windows.Controls.UserControl
     {
         if (DataContext is TerminalSessionViewModel vm && !string.IsNullOrEmpty(vm.Output))
         {
-            System.Windows.Clipboard.SetText(vm.Output);
+            try
+            {
+                System.Windows.Clipboard.SetText(vm.Output);
+            }
+            catch (COMException)
+            {
+                System.Windows.MessageBox.Show("Couldn't access the clipboard. Please try again after closing applications that might be locking it.",
+                    "Clipboard Busy",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
         }
     }
 }

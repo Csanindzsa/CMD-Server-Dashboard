@@ -231,10 +231,8 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         }
     }
 
-    public bool TryRecallPrevious(out string command)
+    public bool RecallPrevious()
     {
-        command = string.Empty;
-
         if (_history.Count == 0)
         {
             return false;
@@ -242,7 +240,6 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
 
         if (_historyIndex == -1)
         {
-            _historyDraft = PendingInput;
             _historyIndex = _history.Count;
         }
 
@@ -261,15 +258,12 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
             _historyIndex = 0;
         }
 
-        command = _history[_historyIndex];
-        _isRecalling = true;
+        SetPendingInputFromHistory(_history[_historyIndex]);
         return true;
     }
 
-    public bool TryRecallNext(out string command)
+    public bool RecallNext()
     {
-        command = string.Empty;
-
         if (_historyIndex == -1)
         {
             if (_historyDraft is null)
@@ -277,33 +271,40 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
                 return false;
             }
 
-            command = _historyDraft;
+            SetPendingInputFromHistory(_historyDraft);
             _historyDraft = null;
-            _isRecalling = true;
             return true;
+        }
+
+        if (_history.Count == 0)
+        {
+            return false;
         }
 
         _historyIndex++;
 
         if (_historyIndex >= _history.Count)
         {
-            command = _historyDraft ?? string.Empty;
+            SetPendingInputFromHistory(_historyDraft ?? string.Empty);
             _historyDraft = null;
             _historyIndex = -1;
-        }
-        else
-        {
-            command = _history[_historyIndex];
+            return true;
         }
 
-        _isRecalling = true;
+        SetPendingInputFromHistory(_history[_historyIndex]);
         return true;
+    }
+
+    private void SetPendingInputFromHistory(string command)
+    {
+        _isRecalling = true;
+        PendingInput = command;
     }
 
     private void ResetHistoryTraversal()
     {
-        _historyIndex = -1;
-        _historyDraft = string.Empty;
+    _historyIndex = -1;
+    _historyDraft = null;
     }
 
     partial void OnIsInteractiveChanged(bool value)

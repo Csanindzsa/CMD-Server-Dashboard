@@ -83,7 +83,7 @@
                      MinHeight="32"
                      AcceptsReturn="True"
                      IsEnabled="{Binding IsInteractive}"
-                     KeyDown="InputBox_OnKeyDown"
+                     PreviewKeyDown="InputBox_OnPreviewKeyDown"
                      Width="Auto"
                      MinWidth="120"/>
         </Grid>

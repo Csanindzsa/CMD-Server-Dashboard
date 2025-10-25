@@ -50,6 +50,10 @@ The publish output (including `CmdDashboard.exe`) will appear under `CmdDashboar
 3. Expand **Notes** to create or pick a note. Selecting a hidden note will slide the row so it appears first; edit the text, then click **Save** (or press <kbd>Ctrl</kbd>+<kbd>S</kbd>). Right-click for quick actions.
 4. Drag terminal tiles to reorder them. Use the inline buttons to **Copy**, **Clear**, **Stop**, or close each session.
 
+<p align="center">
+	<img src="images/NewTerminal.png" alt="Creating a new terminal session" width="600" />
+</p>
+
 ## ⌨️ Keyboard Shortcuts
 
 - <kbd>Enter</kbd> – Send the pending command to the focused terminal.
@@ -60,6 +64,23 @@ The publish output (including `CmdDashboard.exe`) will appear under `CmdDashboar
 ## 📁 Notes Storage
 
 Notes are stored as plain-text files under `%APPDATA%\CmdDashboard\Notes`. Drop new `.txt` files in that folder to preload content, or back up the directory to keep your snippets safe.
+
+<p align="center">
+	<img src="images/Notes.png" alt="Notes drawer with command snippets" width="600" />
+</p>
+
+## 🧰 Managing data and permissions
+
+- **Clear everything:** Use the in-app “Delete all user data” action to wipe notes and saved terminals.
+- **Running without admin rights:** Non-admin launches still restore elevated sessions but mark them as read-only.
+
+<p align="center">
+	<img src="images/DeleteAllUserData.png" alt="Deleting all saved user data" width="600" />
+</p>
+
+<p align="center">
+	<img src="images/RunningInNonAdminMode.png" alt="App running in non-administrator mode" width="600" />
+</p>
 
 ## 🛠️ Troubleshooting
 

@@ -31,6 +31,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public IRelayCommand ClearSelectedNoteCommand { get; }
 
     private int _maxVisibleNotes = 3;
+    private int _visibleStartIndex;
     private IReadOnlyList<NoteViewModel> _visibleNotes = Array.Empty<NoteViewModel>();
     private IReadOnlyList<NoteViewModel> _overflowNotes = Array.Empty<NoteViewModel>();
 
@@ -47,13 +48,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 return null;
             }
 
-            return _overflowNotes.Contains(SelectedNote) ? SelectedNote : null;
+            return !_visibleNotes.Contains(SelectedNote) ? SelectedNote : null;
         }
         set
         {
             if (value != null)
             {
                 SelectedNote = value;
+                _visibleStartIndex = Notes.IndexOf(value);
             }
         }
     }
@@ -175,7 +177,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         SaveSelectedNoteCommand.NotifyCanExecuteChanged();
         DeleteSelectedNoteCommand.NotifyCanExecuteChanged();
         ClearSelectedNoteCommand.NotifyCanExecuteChanged();
-        OnPropertyChanged(nameof(SelectedOverflowNote));
+        RefreshNoteProjection();
     }
 
     private void LoadNotes()
@@ -334,8 +336,56 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private void RefreshNoteProjection()
     {
-        _visibleNotes = Notes.Take(MaxVisibleNotes).ToList();
-        _overflowNotes = Notes.Skip(MaxVisibleNotes).ToList();
+        if (Notes.Count == 0)
+        {
+            _visibleStartIndex = 0;
+            _visibleNotes = Array.Empty<NoteViewModel>();
+            _overflowNotes = Array.Empty<NoteViewModel>();
+            OnPropertyChanged(nameof(VisibleNotes));
+            OnPropertyChanged(nameof(OverflowNotes));
+            OnPropertyChanged(nameof(HasOverflow));
+            OnPropertyChanged(nameof(SelectedOverflowNote));
+            return;
+        }
+
+        var desiredStart = Math.Clamp(_visibleStartIndex, 0, Notes.Count - 1);
+
+        if (SelectedNote is null)
+        {
+            desiredStart = 0;
+        }
+        else
+        {
+            var selectedIndex = Notes.IndexOf(SelectedNote);
+            if (selectedIndex >= 0)
+            {
+                if (selectedIndex < desiredStart || selectedIndex >= desiredStart + MaxVisibleNotes)
+                {
+                    desiredStart = selectedIndex;
+                }
+            }
+            else
+            {
+                desiredStart = Math.Clamp(desiredStart, 0, Notes.Count - 1);
+            }
+        }
+
+        desiredStart = Math.Clamp(desiredStart, 0, Notes.Count - 1);
+        _visibleStartIndex = desiredStart;
+
+        var visible = Notes.Skip(_visibleStartIndex).Take(MaxVisibleNotes).ToList();
+        if (visible.Count == 0)
+        {
+            _visibleStartIndex = Math.Max(0, Notes.Count - 1);
+            visible = Notes.Skip(_visibleStartIndex).Take(MaxVisibleNotes).ToList();
+        }
+
+        var overflowBefore = Notes.Take(_visibleStartIndex);
+        var overflowAfter = Notes.Skip(_visibleStartIndex + visible.Count);
+
+        _visibleNotes = visible;
+        _overflowNotes = overflowBefore.Concat(overflowAfter).ToList();
+
         OnPropertyChanged(nameof(VisibleNotes));
         OnPropertyChanged(nameof(OverflowNotes));
         OnPropertyChanged(nameof(HasOverflow));

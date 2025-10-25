@@ -57,6 +57,7 @@
                     <Button Content="Copy" Click="CopyButton_OnClick" Style="{StaticResource TerminalButtonStyle}" Margin="0 0 4 0"/>
                     <Button Content="Clear" Command="{Binding ClearOutputCommand}" Style="{StaticResource TerminalButtonStyle}" Margin="0 0 4 0"/>
                     <Button Content="Stop" Command="{Binding StopCommand}" Style="{StaticResource TerminalButtonStyle}" Margin="0 0 4 0"/>
+                    <Button Content="Restart" Command="{Binding RestartCommand}" Style="{StaticResource TerminalButtonStyle}" Margin="0 0 4 0"/>
                     <Button Content="×"
                             Width="22" Height="22"
                             Command="{Binding DataContext.CloseSessionCommand, RelativeSource={RelativeSource AncestorType=Window}}"

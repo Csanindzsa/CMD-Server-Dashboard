@@ -1,47 +1,64 @@
 # Command Dashboard
 
-Command Dashboard is a Windows desktop tool for juggling multiple command prompts in one window. Launch as many terminals as you like, rearrange them automatically into balanced grids, and keep reusable commands at your fingertips.
+Command Dashboard is a Windows desktop companion for power users who live in the terminal. Launch multiple command prompts, tile them automatically, capture command snippets, and stay productive without juggling windows.
 
-## Features
+## ✨ Highlights
 
-- **Adaptive tiling** – automatically lays out sessions 1×1, 1×2, 1×3, 2×2, 3×3, and beyond as new terminals are opened.
-- **Per-session history** – use <kbd>↑</kbd>/<kbd>↓</kbd> inside an input field to cycle through the commands you previously sent.
-- **Persistent notes** – expand the Notes panel (next to the “+” button) to store reusable command snippets. Notes are saved as `.txt` files under `%APPDATA%\CmdDashboard\Notes` and reload on startup.
-- **Session controls** – send input, stop, clear, copy logs, and close any tile without losing track of the rest.
+- **Adaptive tiling** – Sessions snap into responsive grids (1×1, 1×2, 2×2, 3×3, …) as you add or remove terminals.
+- **Per-session history** – Use <kbd>↑</kbd>/<kbd>↓</kbd> inside any terminal tile to walk backwards or forwards through commands you already ran.
+- **Persistent notes** – Save frequently used commands in the Notes drawer; everything autosaves to `%APPDATA%\CmdDashboard\Notes` and reloads when the app starts.
+- **Elevated terminals** – Run Command Dashboard as administrator to spawn elevated consoles; non-admin launches rehydrate elevated sessions in read-only mode.
+- **Clipboard-friendly output** – Copy the full log of any terminal with one click. Clipboard contention is safely handled.
+- **Keyboard-first workflow** – Delete notes with <kbd>Delete</kbd>, save with <kbd>Ctrl</kbd>+<kbd>S</kbd>, recall grids instantly.
 
-## Getting started
+## 🚀 Getting Started
 
-### Prerequisites
+### Requirements
 
-- Windows 10/11
-- [.NET SDK 8.0](https://dotnet.microsoft.com/en-us/download) or newer
+- Windows 10 or Windows 11
+- [.NET SDK 8.0](https://dotnet.microsoft.com/download) (includes the runtime)
 
-### Build and run
+### Clone, build, and run
 
 ```powershell
-cd d:\Documents\programozas\CMD_Server
+git clone https://github.com/Csanindzsa/CMD-Server-Dashboard.git
+cd CMD-Server-Dashboard
 dotnet build CmdDashboard.sln
 dotnet run --project CmdDashboard\CmdDashboard.csproj
 ```
 
-## Using the app
+### Create a release build
 
-1. Click **+** to open a terminal; the layout instantly rebalances to fill the window.
-2. Type a command and press **Enter**. Use <kbd>↑</kbd>/<kbd>↓</kbd> to recall what you sent earlier in that tile.
-3. Expand **Notes** to create, edit, and delete command snippets. Select one to edit its text, then **Save** to persist.
-4. Drag tiles to reorder; use the inline buttons to clear output, stop the process, copy the log, or close the session.
+```powershell
+dotnet publish CmdDashboard\CmdDashboard.csproj -c Release -r win-x64 --self-contained false
+```
 
-## Keyboard shortcuts
+The publish output (including `CmdDashboard.exe`) will appear under `CmdDashboard\bin\Release\net8.0-windows\win-x64\publish`.
 
-- <kbd>Enter</kbd>: send the current command to the active terminal.
-- <kbd>↑</kbd>/<kbd>↓</kbd>: navigate backward/forward through the current session’s command history.
+## 🧭 Usage Guide
 
-## Notes storage
+1. Click the **+** button to open a new terminal. Layouts rebalance instantly.
+2. Type a command, press <kbd>Enter</kbd>, and watch output stream live. Use <kbd>↑</kbd>/<kbd>↓</kbd> to recall previous commands in that session.
+3. Expand **Notes** to create or pick a note. Selecting a hidden note will slide the row so it appears first; edit the text, then click **Save** (or press <kbd>Ctrl</kbd>+<kbd>S</kbd>). Right-click for quick actions.
+4. Drag terminal tiles to reorder them. Use the inline buttons to **Copy**, **Clear**, **Stop**, or close each session.
 
-Notes are plain-text files stored per user. You can back them up or populate them manually by placing `.txt` files in `%APPDATA%\CmdDashboard\Notes` before launching the app.
+## ⌨️ Keyboard Shortcuts
 
-## License
+- <kbd>Enter</kbd> – Send the pending command to the focused terminal.
+- <kbd>↑</kbd>/<kbd>↓</kbd> – Navigate backwards/forwards through the focused terminal’s command history.
+- <kbd>Delete</kbd> – Remove the currently selected note (unless it’s protected).
+- <kbd>Ctrl</kbd>+<kbd>S</kbd> – Save the contents of the selected note.
 
-This project is provided without a formal license. Adapt it to your workflows as needed.
+## 📁 Notes Storage
 
-a
+Notes are stored as plain-text files under `%APPDATA%\CmdDashboard\Notes`. Drop new `.txt` files in that folder to preload content, or back up the directory to keep your snippets safe.
+
+## 🛠️ Troubleshooting
+
+- **Encoding issues:** The app automatically matches your system’s OEM code page and falls back to UTF-8 when needed.
+- **Clipboard busy:** Copying terminal output shows a friendly warning if another app locks the clipboard.
+- **Read-only terminals:** Elevated sessions restored while running non-admin will be marked read-only; relaunch the app as administrator to interact with them again.
+
+## 📄 License
+
+This project is released under the [MIT License](LICENSE). Feel free to fork, adapt, and build upon it.

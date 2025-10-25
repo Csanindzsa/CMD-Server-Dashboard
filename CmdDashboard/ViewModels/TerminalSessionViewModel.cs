@@ -11,7 +11,7 @@ namespace CmdDashboard.ViewModels;
 
 public partial class TerminalSessionViewModel : ObservableObject, IDisposable
 {
-    private readonly TerminalProcessHost? _processHost;
+    private TerminalProcessHost? _processHost;
     private readonly StringBuilder _buffer = new();
     private readonly SynchronizationContext _syncContext;
     private readonly List<string> _history = new();
@@ -38,6 +38,7 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
     public IRelayCommand SendInputCommand { get; }
     public IRelayCommand ClearOutputCommand { get; }
     public IRelayCommand StopCommand { get; }
+    public IRelayCommand RestartCommand { get; }
 
     public string? WorkingDirectory { get; }
     public string? StartupCommand { get; }
@@ -53,24 +54,18 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         SendInputCommand = new RelayCommand(SendInput, CanSendInput);
         ClearOutputCommand = new RelayCommand(ClearOutput, CanClearOutput);
         StopCommand = new RelayCommand(StopSession, CanStopSession);
+        RestartCommand = new RelayCommand(RestartSession, CanRestartSession);
 
         _processHost = null;
         if (interactive)
         {
-            _processHost = TerminalProcessHost.Start(workingDirectory, runAsAdministrator);
-            _processHost.OutputReceived += AppendOutput;
-            _processHost.Exited += OnExited;
+            InitializeProcessHost(runStartupCommands);
         }
 
         if (!string.IsNullOrEmpty(initialOutput))
         {
             _buffer.Append(initialOutput);
             Output = _buffer.ToString();
-        }
-
-        if (interactive && runStartupCommands)
-        {
-            InitializeStartupCommands(startCommand);
         }
 
         if (!interactive)
@@ -103,11 +98,13 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         return new TerminalSessionSnapshot(Title, WorkingDirectory, StartupCommand, RunAsAdministrator, Output);
     }
 
-    private bool CanSendInput() => IsInteractive && !string.IsNullOrWhiteSpace(PendingInput);
+    private bool CanSendInput() => IsInteractive && IsRunning && !string.IsNullOrWhiteSpace(PendingInput);
 
     private bool CanClearOutput() => IsInteractive;
 
     private bool CanStopSession() => IsInteractive && IsRunning;
+
+    private bool CanRestartSession() => IsInteractive && !IsRunning;
 
     partial void OnPendingInputChanged(string value)
     {
@@ -139,7 +136,7 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
 
     private void SendInput()
     {
-        if (!IsInteractive)
+        if (!IsInteractive || !IsRunning)
         {
             return;
         }
@@ -202,6 +199,56 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         }
     }
 
+    private void RestartSession()
+    {
+        if (!CanRestartSession())
+        {
+            return;
+        }
+
+        DisposeProcessHost();
+        InitializeProcessHost(runStartupCommands: true);
+
+        _buffer.AppendLine($"Process restarted at {DateTime.Now:T}.");
+        Output = _buffer.ToString();
+        ResetHistoryTraversal();
+    }
+
+    private void InitializeProcessHost(bool runStartupCommands)
+    {
+        DisposeProcessHost();
+
+        _processHost = TerminalProcessHost.Start(WorkingDirectory, RunAsAdministrator);
+        _processHost.OutputReceived += AppendOutput;
+        _processHost.Exited += OnExited;
+
+        if (!IsRunning)
+        {
+            IsRunning = true;
+        }
+
+        StopCommand.NotifyCanExecuteChanged();
+        RestartCommand.NotifyCanExecuteChanged();
+
+        if (runStartupCommands)
+        {
+            InitializeStartupCommands(StartupCommand);
+        }
+    }
+
+    private void DisposeProcessHost()
+    {
+        if (_processHost is null)
+        {
+            return;
+        }
+
+        _processHost.OutputReceived -= AppendOutput;
+        _processHost.Exited -= OnExited;
+        _processHost.Dispose();
+        _processHost = null;
+    }
+
     private void OnExited(int exitCode)
     {
         _syncContext.Post(_ =>
@@ -213,22 +260,20 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
                 Output = _buffer.ToString();
             }
             StopCommand.NotifyCanExecuteChanged();
+            RestartCommand.NotifyCanExecuteChanged();
         }, null);
     }
 
     partial void OnIsRunningChanged(bool value)
     {
         StopCommand.NotifyCanExecuteChanged();
+        RestartCommand.NotifyCanExecuteChanged();
+        SendInputCommand.NotifyCanExecuteChanged();
     }
 
     public void Dispose()
     {
-        if (_processHost is not null)
-        {
-            _processHost.OutputReceived -= AppendOutput;
-            _processHost.Exited -= OnExited;
-            _processHost.Dispose();
-        }
+        DisposeProcessHost();
     }
 
     public bool RecallPrevious()
@@ -312,5 +357,6 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         SendInputCommand.NotifyCanExecuteChanged();
         ClearOutputCommand.NotifyCanExecuteChanged();
         StopCommand.NotifyCanExecuteChanged();
+        RestartCommand.NotifyCanExecuteChanged();
     }
 }

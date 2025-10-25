@@ -96,7 +96,10 @@ public partial class TerminalTile : System.Windows.Controls.UserControl
 
     private void OutputBox_OnTextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
     {
-        ScrollViewer.ScrollToEnd();
+        if (sender is System.Windows.Controls.TextBox outputBox)
+        {
+            outputBox.ScrollToEnd();
+        }
     }
 
     private void CopyButton_OnClick(object sender, RoutedEventArgs e)

@@ -66,9 +66,20 @@
                 </StackPanel>
             </DockPanel>
 
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" x:Name="ScrollViewer">
-                <TextBox Text="{Binding Output}" IsReadOnly="True" TextWrapping="Wrap" Background="#FF121212" Foreground="#FFEEEEEE" BorderThickness="0" FontFamily="Consolas" FontSize="13" AcceptsReturn="True" TextChanged="OutputBox_OnTextChanged"/>
-            </ScrollViewer>
+            <TextBox x:Name="OutputBox"
+                     Grid.Row="1"
+                     Text="{Binding Output}"
+                     IsReadOnly="True"
+                     TextWrapping="Wrap"
+                     Background="#FF121212"
+                     Foreground="#FFEEEEEE"
+                     BorderThickness="0"
+                     FontFamily="Consolas"
+                     FontSize="13"
+                     AcceptsReturn="True"
+                     VerticalScrollBarVisibility="Auto"
+                     HorizontalScrollBarVisibility="Disabled"
+                     TextChanged="OutputBox_OnTextChanged"/>
 
             <TextBox x:Name="InputBox"
                      Grid.Row="2"
@@ -83,6 +94,9 @@
                      Padding="4"
                      MinHeight="32"
                      AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto"
+                     HorizontalScrollBarVisibility="Disabled"
                      IsEnabled="{Binding IsInteractive}"
                      PreviewKeyDown="InputBox_OnPreviewKeyDown"
                      Width="Auto"

@@ -18,7 +18,15 @@ Command Dashboard is a Windows desktop companion for power users who live in the
 - Windows 10 or Windows 11
 - [.NET SDK 8.0](https://dotnet.microsoft.com/download) (includes the runtime)
 
-### Clone, build, and run
+### Option 1 — Use a prebuilt release
+
+1. Grab the latest `.zip` from the [Releases](https://github.com/Csanindzsa/CMD-Server-Dashboard/releases) page.
+2. Unzip it to any folder you trust (e.g., `C:\Tools\CmdDashboard`).
+3. Double-click `CmdDashboard.exe` inside the extracted folder.
+
+> 📝 The archive already contains everything required to run on Windows with the .NET 8 desktop runtime installed. No installer or build step is needed.
+
+### Option 2 — Clone, build, and run
 
 ```powershell
 git clone https://github.com/Csanindzsa/CMD-Server-Dashboard.git
@@ -27,7 +35,7 @@ dotnet build CmdDashboard.sln
 dotnet run --project CmdDashboard\CmdDashboard.csproj
 ```
 
-### Create a release build
+### Create your own release build
 
 ```powershell
 dotnet publish CmdDashboard\CmdDashboard.csproj -c Release -r win-x64 --self-contained false

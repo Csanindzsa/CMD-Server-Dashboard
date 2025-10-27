@@ -18,7 +18,8 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
-        InitializeComponent();
+    var resourceLocator = new Uri("/CmdDashboard;component/Views/MainWindow.xaml", UriKind.Relative);
+    System.Windows.Application.LoadComponent(this, resourceLocator);
         DataContext = new MainViewModel();
         Loaded += MainWindow_OnLoaded;
     }

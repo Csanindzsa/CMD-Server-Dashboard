@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using CmdDashboard.Models;
@@ -19,6 +21,8 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
     private int _historyIndex = -1;
     private string? _historyDraft;
     private bool _isRecalling;
+    private bool _isAutoCompleting;
+    private AutoCompleteSession? _autoCompleteSession;
 
     [ObservableProperty]
     private string _title = string.Empty;
@@ -116,8 +120,15 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
             return;
         }
 
+        if (_isAutoCompleting)
+        {
+            _isAutoCompleting = false;
+            return;
+        }
+
         _historyIndex = -1;
         _historyDraft = value;
+        ResetAutoCompleteSession();
     }
 
     private void AppendOutput(string text)
@@ -147,6 +158,8 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         {
             return;
         }
+
+        ResetAutoCompleteSession();
 
         _buffer.AppendLine($"> {command}");
         Output = _buffer.ToString();
@@ -344,12 +357,69 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
     {
         _isRecalling = true;
         PendingInput = command;
+        ResetAutoCompleteSession();
     }
 
     private void ResetHistoryTraversal()
     {
-    _historyIndex = -1;
-    _historyDraft = null;
+        _historyIndex = -1;
+        _historyDraft = null;
+        ResetAutoCompleteSession();
+    }
+
+    public bool TryAutoComplete(bool reverse, string currentText, int caretIndex, out int newCaretIndex)
+    {
+        newCaretIndex = caretIndex;
+
+        if (!IsInteractive)
+        {
+            return false;
+        }
+
+        if (caretIndex < 0 || caretIndex > currentText.Length)
+        {
+            return false;
+        }
+
+        var session = _autoCompleteSession;
+        if (session is null || !session.CanReuse(currentText, caretIndex))
+        {
+            session = CreateAutoCompleteSession(currentText, caretIndex);
+            if (session is null)
+            {
+                _autoCompleteSession = null;
+                return false;
+            }
+
+            _autoCompleteSession = session;
+        }
+
+        if (session.Candidates.Count == 0)
+        {
+            _autoCompleteSession = null;
+            return false;
+        }
+
+        var count = session.Candidates.Count;
+        if (session.CurrentIndex < 0)
+        {
+            session.CurrentIndex = reverse ? count - 1 : 0;
+        }
+        else
+        {
+            session.CurrentIndex = (session.CurrentIndex + (reverse ? -1 : 1) + count) % count;
+        }
+
+        var (completedText, caret) = session.ApplyCandidate(session.CurrentIndex);
+
+        _isAutoCompleting = true;
+        PendingInput = completedText;
+        if (_isAutoCompleting)
+        {
+            _isAutoCompleting = false;
+        }
+        newCaretIndex = caret;
+        return true;
     }
 
     partial void OnIsInteractiveChanged(bool value)
@@ -358,5 +428,574 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         ClearOutputCommand.NotifyCanExecuteChanged();
         StopCommand.NotifyCanExecuteChanged();
         RestartCommand.NotifyCanExecuteChanged();
+    }
+
+    private void ResetAutoCompleteSession()
+    {
+        _autoCompleteSession = null;
+    }
+
+    private AutoCompleteSession? CreateAutoCompleteSession(string text, int caretIndex)
+    {
+        var lineStart = FindLineStart(text, caretIndex);
+        var tokenStart = FindTokenStart(text, caretIndex);
+
+        var linePrefix = text.Substring(lineStart, caretIndex - lineStart);
+        var tokenPrefix = text.Substring(tokenStart, caretIndex - tokenStart);
+
+        var candidates = GatherAutoCompleteCandidates(text, caretIndex, lineStart, linePrefix, tokenStart, tokenPrefix);
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        return new AutoCompleteSession(text, caretIndex, candidates);
+    }
+
+    private List<AutoCompleteCandidate> GatherAutoCompleteCandidates(
+        string text,
+        int caretIndex,
+        int lineStart,
+        string linePrefix,
+        int tokenStart,
+        string tokenPrefix)
+    {
+        var candidates = new List<AutoCompleteCandidate>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var fileCandidates = BuildFileSystemCandidates(tokenPrefix, tokenStart, caretIndex);
+        var commandCandidates = BuildCommandCandidates(tokenPrefix, tokenStart, caretIndex);
+        var historyCandidates = BuildHistoryCandidates(linePrefix, lineStart, caretIndex);
+
+        var looksLikePath = LooksLikePathToken(tokenPrefix);
+
+        void AddRange(IEnumerable<AutoCompleteCandidate> source)
+        {
+            foreach (var candidate in source)
+            {
+                var key = FormCandidateKey(candidate);
+                if (seen.Add(key))
+                {
+                    candidates.Add(candidate);
+                }
+            }
+        }
+
+        if (looksLikePath)
+        {
+            AddRange(fileCandidates);
+            AddRange(historyCandidates);
+            AddRange(commandCandidates);
+        }
+        else
+        {
+            AddRange(historyCandidates);
+            AddRange(commandCandidates);
+            AddRange(fileCandidates);
+        }
+
+        return candidates;
+    }
+
+    private static string FormCandidateKey(AutoCompleteCandidate candidate)
+    {
+        return $"{candidate.Start}:{candidate.Length}:{candidate.Replacement}";
+    }
+
+    private IEnumerable<AutoCompleteCandidate> BuildHistoryCandidates(string linePrefix, int lineStart, int caretIndex)
+    {
+        if (string.IsNullOrWhiteSpace(linePrefix))
+        {
+            yield break;
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in _history.AsEnumerable().Reverse())
+        {
+            if (!entry.StartsWith(linePrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!seen.Add(entry))
+            {
+                continue;
+            }
+
+            yield return new AutoCompleteCandidate(lineStart, caretIndex - lineStart, entry);
+        }
+    }
+
+    private IEnumerable<AutoCompleteCandidate> BuildCommandCandidates(string tokenPrefix, int tokenStart, int caretIndex)
+    {
+        var prefix = tokenPrefix.TrimStart('"');
+        if (string.IsNullOrEmpty(prefix))
+        {
+            yield break;
+        }
+
+        if (LooksLikePathToken(prefix))
+        {
+            yield break;
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var name in EnumerateCommandNames(prefix))
+        {
+            if (!seen.Add(name))
+            {
+                continue;
+            }
+
+            yield return new AutoCompleteCandidate(tokenStart, caretIndex - tokenStart, name);
+        }
+    }
+
+    private IEnumerable<string> EnumerateCommandNames(string prefix)
+    {
+        foreach (var builtin in BuiltInCommands)
+        {
+            if (builtin.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                yield return builtin;
+            }
+        }
+
+        foreach (var name in EnumerateLocalExecutables(prefix))
+        {
+            yield return name;
+        }
+
+        foreach (var name in GlobalExecutableNames.Value)
+        {
+            if (name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                yield return name;
+            }
+        }
+    }
+
+    private IEnumerable<string> EnumerateLocalExecutables(string prefix)
+    {
+        var workingDirectory = ResolveWorkingDirectory();
+        if (string.IsNullOrEmpty(workingDirectory) || !Directory.Exists(workingDirectory))
+        {
+            yield break;
+        }
+
+        var extensions = ExecutableExtensions.Value;
+        IEnumerable<string> files;
+        try
+        {
+            files = Directory.EnumerateFiles(workingDirectory);
+        }
+        catch
+        {
+            yield break;
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in files)
+        {
+            var extension = Path.GetExtension(file);
+            if (!extensions.Contains(extension))
+            {
+                continue;
+            }
+
+            var name = Path.GetFileNameWithoutExtension(file);
+            if (!seen.Add(name))
+            {
+                continue;
+            }
+
+            if (name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                yield return name;
+            }
+        }
+    }
+
+    private IEnumerable<AutoCompleteCandidate> BuildFileSystemCandidates(string tokenPrefix, int tokenStart, int caretIndex)
+    {
+        var prefix = tokenPrefix;
+        var hasLeadingQuote = false;
+        if (prefix.StartsWith("\"", StringComparison.Ordinal))
+        {
+            hasLeadingQuote = true;
+            prefix = prefix[1..];
+        }
+
+    var normalizedPrefix = prefix.Replace("/", "\\");
+
+        var typedDirectoryPart = string.Empty;
+        var normalizedDirectoryPart = string.Empty;
+        var searchTerm = prefix;
+
+        var lastSeparator = FindLastPathSeparator(prefix);
+        if (lastSeparator >= 0)
+        {
+            typedDirectoryPart = prefix[..(lastSeparator + 1)];
+            normalizedDirectoryPart = normalizedPrefix[..(lastSeparator + 1)];
+            searchTerm = prefix[(lastSeparator + 1)..];
+        }
+        else
+        {
+            searchTerm = prefix;
+        }
+
+        var resolvedBase = ResolveWorkingDirectory();
+        string? probeDirectory;
+        if (!string.IsNullOrEmpty(normalizedDirectoryPart))
+        {
+            probeDirectory = TryResolveDirectory(resolvedBase, normalizedDirectoryPart);
+        }
+        else
+        {
+            probeDirectory = resolvedBase;
+        }
+
+        if (string.IsNullOrEmpty(probeDirectory) || !Directory.Exists(probeDirectory))
+        {
+            yield break;
+        }
+
+        var preferredSeparator = DeterminePreferredSeparator(tokenPrefix);
+        var directoryTokenPrefix = NormalizeSeparators(typedDirectoryPart, preferredSeparator);
+        var leading = hasLeadingQuote ? "\"" : string.Empty;
+
+    foreach (var entry in EnumerateFileSystemEntries(probeDirectory, searchTerm))
+        {
+            var baseToken = directoryTokenPrefix;
+            if (!string.IsNullOrEmpty(baseToken) && baseToken[^1] != preferredSeparator)
+            {
+                baseToken += preferredSeparator;
+            }
+
+            var replacement = leading + baseToken + entry.Name;
+            if (entry.IsDirectory)
+            {
+                replacement += preferredSeparator;
+            }
+
+            yield return new AutoCompleteCandidate(tokenStart, caretIndex - tokenStart, replacement);
+        }
+    }
+
+    private static IEnumerable<(string Name, bool IsDirectory)> EnumerateFileSystemEntries(string directory, string searchTerm)
+    {
+        var comparison = StringComparison.OrdinalIgnoreCase;
+
+        bool Matches(string candidate)
+        {
+            return string.IsNullOrEmpty(searchTerm) || candidate.StartsWith(searchTerm, comparison);
+        }
+
+        IEnumerable<string> directories;
+        try
+        {
+            directories = Directory.EnumerateDirectories(directory);
+        }
+        catch
+        {
+            directories = Array.Empty<string>();
+        }
+
+        foreach (var dir in directories)
+        {
+            var name = Path.GetFileName(dir);
+            if (Matches(name))
+            {
+                yield return (name, true);
+            }
+        }
+
+        IEnumerable<string> files;
+        try
+        {
+            files = Directory.EnumerateFiles(directory);
+        }
+        catch
+        {
+            files = Array.Empty<string>();
+        }
+
+        foreach (var file in files)
+        {
+            var name = Path.GetFileName(file);
+            if (Matches(name))
+            {
+                yield return (name, false);
+            }
+        }
+    }
+
+    private string ResolveWorkingDirectory()
+    {
+        if (!string.IsNullOrWhiteSpace(WorkingDirectory) && Directory.Exists(WorkingDirectory))
+        {
+            return WorkingDirectory;
+        }
+
+        try
+        {
+            var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (!string.IsNullOrWhiteSpace(profile) && Directory.Exists(profile))
+            {
+                return profile;
+            }
+        }
+        catch
+        {
+            // ignored
+        }
+
+        return Environment.CurrentDirectory;
+    }
+
+    private static string? TryResolveDirectory(string baseDirectory, string relativeOrAbsolute)
+    {
+        try
+        {
+            if (Path.IsPathRooted(relativeOrAbsolute))
+            {
+                return Path.GetFullPath(relativeOrAbsolute);
+            }
+
+            return Path.GetFullPath(Path.Combine(baseDirectory, relativeOrAbsolute));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static int FindLineStart(string text, int caretIndex)
+    {
+        if (caretIndex <= 0 || text.Length == 0)
+        {
+            return 0;
+        }
+
+        var idx = caretIndex - 1;
+        while (idx >= 0)
+        {
+            var ch = text[idx];
+            if (ch == '\n')
+            {
+                return idx + 1;
+            }
+
+            if (ch == '\r')
+            {
+                return idx + 1;
+            }
+
+            idx--;
+        }
+
+        return 0;
+    }
+
+    private static int FindTokenStart(string text, int caretIndex)
+    {
+        if (caretIndex <= 0)
+        {
+            return 0;
+        }
+
+        var index = caretIndex;
+        while (index > 0)
+        {
+            var ch = text[index - 1];
+            if (char.IsWhiteSpace(ch) || ch == '(' || ch == ')' || ch == ';')
+            {
+                break;
+            }
+
+            index--;
+        }
+
+        return index;
+    }
+
+    private static int FindLastPathSeparator(string text)
+    {
+        var lastBackslash = text.LastIndexOf('\\');
+        var lastForwardSlash = text.LastIndexOf('/');
+        return Math.Max(lastBackslash, lastForwardSlash);
+    }
+
+    private static bool LooksLikePathToken(string tokenPrefix)
+    {
+        if (string.IsNullOrEmpty(tokenPrefix))
+        {
+            return false;
+        }
+
+    var prefix = tokenPrefix.TrimStart('"');
+    return prefix.Contains('\\') || prefix.Contains('/') || prefix.Contains(':') || prefix.StartsWith("..", StringComparison.Ordinal) || prefix.StartsWith(".", StringComparison.Ordinal);
+    }
+
+    private static char DeterminePreferredSeparator(string tokenPrefix)
+    {
+        return tokenPrefix.Contains('/') ? '/' : '\\';
+    }
+
+    private static string NormalizeSeparators(string text, char separator)
+    {
+    var separatorText = separator.ToString();
+    return text.Replace("\\", separatorText).Replace("/", separatorText);
+    }
+
+    private static readonly string[] BuiltInCommands =
+    {
+        "assoc", "break", "call", "cd", "chcp", "chdir", "cls", "color", "copy", "date", "del",
+        "dir", "echo", "endlocal", "erase", "exit", "for", "ftype", "goto", "if", "md", "mkdir",
+        "mklink", "move", "path", "pause", "popd", "prompt", "pushd", "rd", "rem", "ren", "rename",
+        "rmdir", "set", "setlocal", "shift", "start", "time", "title", "type", "ver", "verify", "vol"
+    };
+
+    private static readonly string[] DefaultExecutableExtensions = { ".exe", ".bat", ".cmd", ".com" };
+
+    private static readonly Lazy<HashSet<string>> ExecutableExtensions = new(
+        () => LoadExecutableExtensions(),
+        System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
+
+    private static readonly Lazy<IReadOnlyList<string>> GlobalExecutableNames = new(
+        () => LoadGlobalExecutables(),
+        System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
+
+    private static HashSet<string> LoadExecutableExtensions()
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var pathext = Environment.GetEnvironmentVariable("PATHEXT");
+        if (!string.IsNullOrWhiteSpace(pathext))
+        {
+            foreach (var ext in pathext.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var trimmed = ext.Trim();
+                if (string.IsNullOrEmpty(trimmed))
+                {
+                    continue;
+                }
+
+                if (!trimmed.StartsWith(".", StringComparison.Ordinal))
+                {
+                    trimmed = "." + trimmed;
+                }
+
+                result.Add(trimmed);
+            }
+        }
+
+        foreach (var fallback in DefaultExecutableExtensions)
+        {
+            result.Add(fallback);
+        }
+
+        return result;
+    }
+
+    private static IReadOnlyList<string> LoadGlobalExecutables()
+    {
+        var commands = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var extensions = ExecutableExtensions.Value;
+        var pathVariable = Environment.GetEnvironmentVariable("PATH");
+        if (string.IsNullOrWhiteSpace(pathVariable))
+        {
+            return Array.Empty<string>();
+        }
+
+        foreach (var segment in pathVariable.Split(';', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var directory = segment.Trim();
+            if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
+            {
+                continue;
+            }
+
+            try
+            {
+                foreach (var file in Directory.EnumerateFiles(directory))
+                {
+                    var extension = Path.GetExtension(file);
+                    if (!extensions.Contains(extension))
+                    {
+                        continue;
+                    }
+
+                    var name = Path.GetFileNameWithoutExtension(file);
+                    if (!string.IsNullOrEmpty(name))
+                    {
+                        commands.Add(name);
+                    }
+                }
+            }
+            catch
+            {
+                // ignored
+            }
+        }
+
+        return commands.OrderBy(static c => c, StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    private readonly struct AutoCompleteCandidate
+    {
+        public AutoCompleteCandidate(int start, int length, string replacement)
+        {
+            Start = start;
+            Length = length;
+            Replacement = replacement;
+        }
+
+        public int Start { get; }
+        public int Length { get; }
+        public string Replacement { get; }
+    }
+
+    private sealed class AutoCompleteSession
+    {
+        public AutoCompleteSession(string baseText, int baseCaretIndex, IReadOnlyList<AutoCompleteCandidate> candidates)
+        {
+            BaseText = baseText;
+            BaseCaretIndex = baseCaretIndex;
+            Candidates = candidates;
+            CurrentIndex = -1;
+            LastText = baseText;
+            LastCaretIndex = baseCaretIndex;
+        }
+
+        public string BaseText { get; }
+        public int BaseCaretIndex { get; }
+        public IReadOnlyList<AutoCompleteCandidate> Candidates { get; }
+        public int CurrentIndex { get; set; }
+        public string LastText { get; private set; }
+        public int LastCaretIndex { get; private set; }
+
+        public bool CanReuse(string text, int caretIndex)
+        {
+            if (CurrentIndex == -1)
+            {
+                return text == BaseText && caretIndex == BaseCaretIndex;
+            }
+
+            return text == LastText && caretIndex == LastCaretIndex;
+        }
+
+        public (string Text, int CaretIndex) ApplyCandidate(int index)
+        {
+            var candidate = Candidates[index];
+            var before = BaseText[..candidate.Start];
+            var after = BaseText[(candidate.Start + candidate.Length)..];
+            var text = string.Concat(before, candidate.Replacement, after);
+            var caret = candidate.Start + candidate.Replacement.Length;
+
+            LastText = text;
+            LastCaretIndex = caret;
+            return (text, caret);
+        }
     }
 }

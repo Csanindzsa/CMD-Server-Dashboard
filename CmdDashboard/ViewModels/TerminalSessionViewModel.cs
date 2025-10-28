@@ -463,7 +463,8 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         var candidates = new List<AutoCompleteCandidate>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        var fileCandidates = BuildFileSystemCandidates(tokenPrefix, tokenStart, caretIndex);
+    var directoriesOnly = ShouldRestrictToDirectories(linePrefix);
+    var fileCandidates = BuildFileSystemCandidates(tokenPrefix, tokenStart, caretIndex, directoriesOnly);
         var commandCandidates = BuildCommandCandidates(tokenPrefix, tokenStart, caretIndex);
         var historyCandidates = BuildHistoryCandidates(linePrefix, lineStart, caretIndex);
 
@@ -617,7 +618,7 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         }
     }
 
-    private IEnumerable<AutoCompleteCandidate> BuildFileSystemCandidates(string tokenPrefix, int tokenStart, int caretIndex)
+    private IEnumerable<AutoCompleteCandidate> BuildFileSystemCandidates(string tokenPrefix, int tokenStart, int caretIndex, bool directoriesOnly)
     {
         var prefix = tokenPrefix;
         var hasLeadingQuote = false;
@@ -667,6 +668,11 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
 
     foreach (var entry in EnumerateFileSystemEntries(probeDirectory, searchTerm))
         {
+            if (directoriesOnly && !entry.IsDirectory)
+            {
+                continue;
+            }
+
             var baseToken = directoryTokenPrefix;
             if (!string.IsNullOrEmpty(baseToken) && baseToken[^1] != preferredSeparator)
             {
@@ -838,6 +844,34 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
     return prefix.Contains('\\') || prefix.Contains('/') || prefix.Contains(':') || prefix.StartsWith("..", StringComparison.Ordinal) || prefix.StartsWith(".", StringComparison.Ordinal);
     }
 
+    private static bool ShouldRestrictToDirectories(string linePrefix)
+    {
+        if (string.IsNullOrWhiteSpace(linePrefix))
+        {
+            return false;
+        }
+
+        var trimmed = linePrefix.TrimStart();
+        if (trimmed.Length == 0)
+        {
+            return false;
+        }
+
+        var idx = 0;
+        while (idx < trimmed.Length && !char.IsWhiteSpace(trimmed[idx]))
+        {
+            idx++;
+        }
+
+        if (idx >= trimmed.Length)
+        {
+            return false;
+        }
+
+        var command = trimmed[..idx];
+        return DirectoryOnlyCommands.Contains(command);
+    }
+
     private static char DeterminePreferredSeparator(string tokenPrefix)
     {
         return tokenPrefix.Contains('/') ? '/' : '\\';
@@ -845,8 +879,8 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
 
     private static string NormalizeSeparators(string text, char separator)
     {
-    var separatorText = separator.ToString();
-    return text.Replace("\\", separatorText).Replace("/", separatorText);
+        var separatorText = separator.ToString();
+        return text.Replace("\\", separatorText).Replace("/", separatorText);
     }
 
     private static readonly string[] BuiltInCommands =
@@ -855,6 +889,13 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         "dir", "echo", "endlocal", "erase", "exit", "for", "ftype", "goto", "if", "md", "mkdir",
         "mklink", "move", "path", "pause", "popd", "prompt", "pushd", "rd", "rem", "ren", "rename",
         "rmdir", "set", "setlocal", "shift", "start", "time", "title", "type", "ver", "verify", "vol"
+    };
+
+    private static readonly HashSet<string> DirectoryOnlyCommands = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "cd",
+        "chdir",
+        "pushd"
     };
 
     private static readonly string[] DefaultExecutableExtensions = { ".exe", ".bat", ".cmd", ".com" };

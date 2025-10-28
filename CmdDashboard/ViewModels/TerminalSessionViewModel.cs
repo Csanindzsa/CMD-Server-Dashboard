@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using CmdDashboard.Models;
 using CmdDashboard.Services;
@@ -463,8 +465,10 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         var candidates = new List<AutoCompleteCandidate>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-    var directoriesOnly = ShouldRestrictToDirectories(linePrefix);
-    var fileCandidates = BuildFileSystemCandidates(tokenPrefix, tokenStart, caretIndex, directoriesOnly);
+        var context = ExtractCommandContext(linePrefix);
+        var directoriesOnly = ShouldRestrictToDirectories(context);
+        var subcommandCandidates = BuildSubcommandCandidates(context, tokenPrefix, tokenStart, caretIndex);
+        var fileCandidates = BuildFileSystemCandidates(tokenPrefix, tokenStart, caretIndex, directoriesOnly);
         var commandCandidates = BuildCommandCandidates(tokenPrefix, tokenStart, caretIndex);
         var historyCandidates = BuildHistoryCandidates(linePrefix, lineStart, caretIndex);
 
@@ -484,12 +488,14 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
 
         if (looksLikePath)
         {
+            AddRange(subcommandCandidates);
             AddRange(fileCandidates);
             AddRange(historyCandidates);
             AddRange(commandCandidates);
         }
         else
         {
+            AddRange(subcommandCandidates);
             AddRange(historyCandidates);
             AddRange(commandCandidates);
             AddRange(fileCandidates);
@@ -840,36 +846,99 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
             return false;
         }
 
-    var prefix = tokenPrefix.TrimStart('"');
-    return prefix.Contains('\\') || prefix.Contains('/') || prefix.Contains(':') || prefix.StartsWith("..", StringComparison.Ordinal) || prefix.StartsWith(".", StringComparison.Ordinal);
+        var prefix = tokenPrefix.TrimStart('"');
+        return prefix.Contains('\\') || prefix.Contains('/') || prefix.Contains(':') || prefix.StartsWith("..", StringComparison.Ordinal) || prefix.StartsWith(".", StringComparison.Ordinal);
     }
 
-    private static bool ShouldRestrictToDirectories(string linePrefix)
+    private IEnumerable<AutoCompleteCandidate> BuildSubcommandCandidates(CommandContext context, string tokenPrefix, int tokenStart, int caretIndex)
     {
-        if (string.IsNullOrWhiteSpace(linePrefix))
+        if (context.Command is null)
+        {
+            yield break;
+        }
+
+        var isTypingCommand = context.Tokens.Count <= 1 && !context.LastTokenCompleted;
+        if (isTypingCommand)
+        {
+            yield break;
+        }
+
+        if (!CommandSubcommands.Value.TryGetValue(context.Command, out var subcommands) || subcommands.Count == 0)
+        {
+            yield break;
+        }
+
+        var prefix = tokenPrefix.TrimStart('"');
+
+        foreach (var subcommand in subcommands)
+        {
+            if (!string.IsNullOrEmpty(prefix) && !subcommand.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            yield return new AutoCompleteCandidate(tokenStart, caretIndex - tokenStart, subcommand);
+        }
+    }
+
+    private static CommandContext ExtractCommandContext(string linePrefix)
+    {
+        if (string.IsNullOrEmpty(linePrefix))
+        {
+            return CommandContext.Empty;
+        }
+
+        var tokens = new List<string>();
+        var current = new StringBuilder();
+        var inQuotes = false;
+
+        foreach (var ch in linePrefix)
+        {
+            if (ch == '"')
+            {
+                inQuotes = !inQuotes;
+                continue;
+            }
+
+            if (char.IsWhiteSpace(ch) && !inQuotes)
+            {
+                if (current.Length > 0)
+                {
+                    tokens.Add(current.ToString());
+                    current.Clear();
+                }
+            }
+            else
+            {
+                current.Append(ch);
+            }
+        }
+
+        var lastTokenCompleted = !inQuotes && linePrefix.Length > 0 && char.IsWhiteSpace(linePrefix[^1]) && current.Length == 0;
+
+        if (current.Length > 0)
+        {
+            tokens.Add(current.ToString());
+            lastTokenCompleted = false;
+        }
+
+        var command = tokens.Count > 0 ? tokens[0] : null;
+        return new CommandContext(command, tokens, lastTokenCompleted);
+    }
+
+    private static bool ShouldRestrictToDirectories(CommandContext context)
+    {
+        if (context.Command is null)
         {
             return false;
         }
 
-        var trimmed = linePrefix.TrimStart();
-        if (trimmed.Length == 0)
+        if (context.Tokens.Count <= 1 && !context.LastTokenCompleted)
         {
             return false;
         }
 
-        var idx = 0;
-        while (idx < trimmed.Length && !char.IsWhiteSpace(trimmed[idx]))
-        {
-            idx++;
-        }
-
-        if (idx >= trimmed.Length)
-        {
-            return false;
-        }
-
-        var command = trimmed[..idx];
-        return DirectoryOnlyCommands.Contains(command);
+        return DirectoryOnlyCommands.Contains(context.Command);
     }
 
     private static char DeterminePreferredSeparator(string tokenPrefix)
@@ -898,6 +967,34 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         "pushd"
     };
 
+    private static readonly string[] CommandsWithDiscoverableSubcommands =
+    {
+        "net"
+    };
+
+    private static readonly IReadOnlyList<string> NetKnownSubcommands = new[]
+    {
+        "accounts",
+        "computer",
+        "config",
+        "continue",
+        "file",
+        "group",
+        "help",
+        "helpmsg",
+        "localgroup",
+        "pause",
+        "session",
+        "share",
+        "start",
+        "statistics",
+        "stop",
+        "time",
+        "use",
+        "user",
+        "view"
+    };
+
     private static readonly string[] DefaultExecutableExtensions = { ".exe", ".bat", ".cmd", ".com" };
 
     private static readonly Lazy<HashSet<string>> ExecutableExtensions = new(
@@ -906,6 +1003,14 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
 
     private static readonly Lazy<IReadOnlyList<string>> GlobalExecutableNames = new(
         () => LoadGlobalExecutables(),
+        System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
+
+    private static readonly Lazy<IReadOnlyList<string>> HelpCommandNames = new(
+        () => LoadHelpCommands(),
+        System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
+
+    private static readonly Lazy<Dictionary<string, IReadOnlyList<string>>> CommandSubcommands = new(
+        () => LoadCommandSubcommands(),
         System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
 
     private static HashSet<string> LoadExecutableExtensions()
@@ -981,6 +1086,192 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         }
 
         return commands.OrderBy(static c => c, StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    private static IReadOnlyList<string> LoadHelpCommands()
+    {
+        var output = RunCommandAndCaptureOutput("help");
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            return Array.Empty<string>();
+        }
+
+        var commands = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            var trimmed = line.TrimStart();
+            if (string.IsNullOrEmpty(trimmed))
+            {
+                continue;
+            }
+
+            var firstSpace = trimmed.IndexOf(' ');
+            var command = firstSpace > 0 ? trimmed[..firstSpace] : trimmed;
+            if (command.Any(static c => char.IsLetterOrDigit(c)))
+            {
+                commands.Add(command.ToLowerInvariant());
+            }
+        }
+
+        if (commands.Count == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        return commands.OrderBy(static c => c, StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    private static Dictionary<string, IReadOnlyList<string>> LoadCommandSubcommands()
+    {
+        var map = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var command in CommandsWithDiscoverableSubcommands)
+        {
+            var output = RunCommandAndCaptureOutput(command, "/?");
+            if (string.IsNullOrWhiteSpace(output))
+            {
+                output = string.Empty;
+            }
+
+            IReadOnlyList<string> subcommands = Array.Empty<string>();
+
+            if (command.Equals("net", StringComparison.OrdinalIgnoreCase))
+            {
+                var parsed = ParseNetSubcommands(output);
+                if (parsed.Count == 0)
+                {
+                    subcommands = NetKnownSubcommands;
+                }
+                else
+                {
+                    var merged = new HashSet<string>(parsed, StringComparer.OrdinalIgnoreCase);
+                    foreach (var fallback in NetKnownSubcommands)
+                    {
+                        merged.Add(fallback);
+                    }
+
+                    subcommands = merged.OrderBy(static s => s, StringComparer.OrdinalIgnoreCase).ToArray();
+                }
+            }
+
+            if (subcommands.Count > 0)
+            {
+                map[command] = subcommands;
+            }
+        }
+
+        return map;
+    }
+
+    private static IReadOnlyList<string> ParseNetSubcommands(string helpOutput)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (Match match in Regex.Matches(helpOutput, "\\[(.*?)\\]", RegexOptions.Singleline))
+        {
+            var content = match.Groups[1].Value;
+            var tokens = content.Split(new[] { '|', '\r', '\n', '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var token in tokens)
+            {
+                var cleaned = token.Trim();
+                if (string.IsNullOrEmpty(cleaned))
+                {
+                    continue;
+                }
+
+                if (cleaned.Equals("NET", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (Regex.IsMatch(cleaned, "^[A-Z][A-Z0-9-]*$", RegexOptions.IgnoreCase))
+                {
+                    names.Add(cleaned.ToLowerInvariant());
+                }
+            }
+        }
+
+        if (names.Count == 0)
+        {
+            var lines = helpOutput.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var line in lines)
+            {
+                var fallbackMatch = Regex.Match(line, "^\\s*([A-Z][A-Z0-9-]+)\\b", RegexOptions.IgnoreCase);
+                if (!fallbackMatch.Success)
+                {
+                    continue;
+                }
+
+                names.Add(fallbackMatch.Groups[1].Value.ToLowerInvariant());
+            }
+        }
+
+        if (names.Count == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        return names.OrderBy(static n => n, StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    private static string? RunCommandAndCaptureOutput(string command, string? arguments = null)
+    {
+        try
+        {
+            var interpreter = Environment.GetEnvironmentVariable("COMSPEC");
+            if (string.IsNullOrWhiteSpace(interpreter))
+            {
+                interpreter = Path.Combine(Environment.SystemDirectory, "cmd.exe");
+            }
+
+            if (string.IsNullOrWhiteSpace(interpreter) || !File.Exists(interpreter))
+            {
+                return null;
+            }
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = interpreter,
+                Arguments = $"/c {command}{(string.IsNullOrEmpty(arguments) ? string.Empty : " " + arguments)}",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8
+            };
+
+            using var process = Process.Start(psi);
+            if (process is null)
+            {
+                return null;
+            }
+
+            var output = process.StandardOutput.ReadToEnd();
+            process.WaitForExit(2000);
+            return output;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private readonly struct CommandContext
+    {
+        public static readonly CommandContext Empty = new(null, Array.Empty<string>(), false);
+
+        public CommandContext(string? command, IReadOnlyList<string> tokens, bool lastTokenCompleted)
+        {
+            Command = command;
+            Tokens = tokens;
+            LastTokenCompleted = lastTokenCompleted;
+        }
+
+        public string? Command { get; }
+        public IReadOnlyList<string> Tokens { get; }
+        public bool LastTokenCompleted { get; }
     }
 
     private readonly struct AutoCompleteCandidate

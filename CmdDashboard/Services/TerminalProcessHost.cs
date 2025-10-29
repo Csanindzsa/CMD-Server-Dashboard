@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,6 +15,7 @@ public sealed class TerminalProcessHost : IDisposable
     static TerminalProcessHost()
     {
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        EnsureHiddenConsole();
     }
 
     private static Encoding ResolveTerminalEncoding()
@@ -41,6 +43,7 @@ public sealed class TerminalProcessHost : IDisposable
     private readonly CancellationTokenSource _cts = new();
     private readonly StringBuilder _buffer = new();
     private readonly object _sync = new();
+    private readonly object _signalLock = new();
 
     public event Action<string>? OutputReceived;
     public event Action<int>? Exited;
@@ -66,8 +69,7 @@ public sealed class TerminalProcessHost : IDisposable
         {
             interpreterPath = Path.Combine(Environment.SystemDirectory, "cmd.exe");
         }
-
-    var oemEncoding = ResolveTerminalEncoding();
+        var oemEncoding = ResolveTerminalEncoding();
 
         var startInfo = new ProcessStartInfo
         {
@@ -77,7 +79,7 @@ public sealed class TerminalProcessHost : IDisposable
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
-            CreateNoWindow = true,
+            CreateNoWindow = false,
             StandardInputEncoding = oemEncoding,
             StandardOutputEncoding = oemEncoding,
             StandardErrorEncoding = oemEncoding,
@@ -156,6 +158,40 @@ public sealed class TerminalProcessHost : IDisposable
         }
     }
 
+    public bool TrySendCtrlC()
+    {
+        if (_process.HasExited)
+        {
+            return false;
+        }
+
+        if (SendConsoleControlEvent())
+        {
+            return true;
+        }
+
+        return TryWriteControlC();
+    }
+
+    private bool TryWriteControlC()
+    {
+        try
+        {
+            if (_process.HasExited)
+            {
+                return false;
+            }
+
+            _process.StandardInput.Write('\u0003');
+            _process.StandardInput.Flush();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public void Dispose()
     {
         _cts.Cancel();
@@ -170,5 +206,96 @@ public sealed class TerminalProcessHost : IDisposable
         }
 
         _process.Dispose();
+    }
+
+    private bool SendConsoleControlEvent()
+    {
+        lock (_signalLock)
+        {
+            if (_process.HasExited)
+            {
+                return false;
+            }
+
+            var handlerInstalled = false;
+            try
+            {
+                handlerInstalled = NativeMethods.SetConsoleCtrlHandler(NativeMethods.IgnoreCtrlDelegate, true);
+                if (!handlerInstalled)
+                {
+                    return false;
+                }
+
+                if (!NativeMethods.GenerateConsoleCtrlEvent(NativeMethods.CTRL_C_EVENT, 0))
+                {
+                    return false;
+                }
+
+                Thread.Sleep(150);
+
+                return true;
+            }
+            finally
+            {
+                if (handlerInstalled)
+                {
+                    NativeMethods.SetConsoleCtrlHandler(NativeMethods.IgnoreCtrlDelegate, false);
+                }
+            }
+        }
+    }
+
+    private static void EnsureHiddenConsole()
+    {
+        try
+        {
+            var consoleWindow = NativeMethods.GetConsoleWindow();
+            var created = false;
+            if (consoleWindow == IntPtr.Zero)
+            {
+                if (!NativeMethods.AllocConsole())
+                {
+                    return;
+                }
+
+                consoleWindow = NativeMethods.GetConsoleWindow();
+                created = true;
+            }
+
+            if (created && consoleWindow != IntPtr.Zero)
+            {
+                NativeMethods.ShowWindow(consoleWindow, NativeMethods.SW_HIDE);
+            }
+        }
+        catch
+        {
+            // intentionally ignored - managing the console is best-effort only
+        }
+    }
+
+
+    private static class NativeMethods
+    {
+        internal const uint CTRL_C_EVENT = 0;
+        internal const int SW_HIDE = 0;
+
+        internal static readonly ConsoleCtrlDelegate IgnoreCtrlDelegate = _ => true;
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        internal static extern bool GenerateConsoleCtrlEvent(uint dwCtrlEvent, uint dwProcessGroupId);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        internal static extern bool SetConsoleCtrlHandler(ConsoleCtrlDelegate handler, bool add);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        internal static extern IntPtr GetConsoleWindow();
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        internal static extern bool AllocConsole();
+
+        [DllImport("user32.dll", SetLastError = true)]
+        internal static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        internal delegate bool ConsoleCtrlDelegate(uint ctrlType);
     }
 }

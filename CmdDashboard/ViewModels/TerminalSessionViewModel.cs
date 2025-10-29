@@ -369,6 +369,39 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         ResetAutoCompleteSession();
     }
 
+    public bool TryInterrupt()
+    {
+        if (!IsInteractive)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrEmpty(PendingInput))
+        {
+            PendingInput = string.Empty;
+        }
+
+        _buffer.AppendLine("^C");
+        _buffer.AppendLine("Restarting session...");
+        Output = _buffer.ToString();
+
+        try
+        {
+            InitializeProcessHost(runStartupCommands: true);
+        }
+        catch (Exception ex)
+        {
+            _buffer.AppendLine($"Restart failed: {ex.Message}");
+            Output = _buffer.ToString();
+            return false;
+        }
+
+        _buffer.AppendLine($"Process restarted at {DateTime.Now:T}.");
+        Output = _buffer.ToString();
+        ResetHistoryTraversal();
+        return true;
+    }
+
     public bool TryAutoComplete(bool reverse, string currentText, int caretIndex, out int newCaretIndex)
     {
         newCaretIndex = caretIndex;

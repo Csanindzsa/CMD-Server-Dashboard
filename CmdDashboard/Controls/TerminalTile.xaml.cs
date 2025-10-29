@@ -1,5 +1,5 @@
-using System;
 using System.Runtime.InteropServices;
+using System;
 using System.Windows;
 using CmdDashboard.ViewModels;
 using WpfDispatcherPriority = System.Windows.Threading.DispatcherPriority;
@@ -35,6 +35,21 @@ public partial class TerminalTile : System.Windows.Controls.UserControl
 
         if (sender is not WpfTextBox textBox)
         {
+            return;
+        }
+
+        if (e.Key == WpfKey.C && (WpfKeyboard.Modifiers & WpfModifierKeys.Control) == WpfModifierKeys.Control)
+        {
+            if (textBox.SelectionLength > 0)
+            {
+                return;
+            }
+
+            if (vm.TryInterrupt())
+            {
+                e.Handled = true;
+            }
+
             return;
         }
 

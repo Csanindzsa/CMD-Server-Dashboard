@@ -15,8 +15,11 @@ namespace CmdDashboard.ViewModels;
 
 public partial class TerminalSessionViewModel : ObservableObject, IDisposable
 {
+    private const int MaxOutputLines = 1000;
+
     private TerminalProcessHost? _processHost;
     private readonly StringBuilder _buffer = new();
+    private readonly Queue<int> _lineBreakPositions = new();
     private readonly SynchronizationContext _syncContext;
     private readonly List<string> _history = new();
 
@@ -70,8 +73,7 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
 
         if (!string.IsNullOrEmpty(initialOutput))
         {
-            _buffer.Append(initialOutput);
-            Output = _buffer.ToString();
+            AppendToBuffer(initialOutput);
         }
 
         if (!interactive)
@@ -137,8 +139,7 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
     {
         _syncContext.Post(_ =>
         {
-            _buffer.Append(text);
-            Output = _buffer.ToString();
+            AppendToBuffer(text);
         }, null);
     }
 
@@ -163,8 +164,7 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
 
         ResetAutoCompleteSession();
 
-        _buffer.AppendLine($"> {command}");
-        Output = _buffer.ToString();
+        AppendLineToBuffer($"> {command}");
         SendRaw(command);
 
         _history.Add(command);
@@ -183,8 +183,7 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
 
         foreach (var command in commands)
         {
-            _buffer.AppendLine($"> {command}");
-            Output = _buffer.ToString();
+            AppendLineToBuffer($"> {command}");
             SendRaw(command);
         }
     }
@@ -197,6 +196,7 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         }
 
         _buffer.Clear();
+        _lineBreakPositions.Clear();
         Output = string.Empty;
     }
 
@@ -224,8 +224,7 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         DisposeProcessHost();
         InitializeProcessHost(runStartupCommands: true);
 
-        _buffer.AppendLine($"Process restarted at {DateTime.Now:T}.");
-        Output = _buffer.ToString();
+        AppendLineToBuffer($"Process restarted at {DateTime.Now:T}.");
         ResetHistoryTraversal();
     }
 
@@ -271,8 +270,7 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
             if (IsRunning)
             {
                 IsRunning = false;
-                _buffer.AppendLine($"Process exited with code {exitCode}.");
-                Output = _buffer.ToString();
+                AppendLineToBuffer($"Process exited with code {exitCode}.");
             }
             StopCommand.NotifyCanExecuteChanged();
             RestartCommand.NotifyCanExecuteChanged();
@@ -381,9 +379,8 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
             PendingInput = string.Empty;
         }
 
-        _buffer.AppendLine("^C");
-        _buffer.AppendLine("Restarting session...");
-        Output = _buffer.ToString();
+        AppendLineToBuffer("^C");
+        AppendLineToBuffer("Restarting session...");
 
         try
         {
@@ -391,15 +388,91 @@ public partial class TerminalSessionViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            _buffer.AppendLine($"Restart failed: {ex.Message}");
-            Output = _buffer.ToString();
+            AppendLineToBuffer($"Restart failed: {ex.Message}");
             return false;
         }
 
-        _buffer.AppendLine($"Process restarted at {DateTime.Now:T}.");
-        Output = _buffer.ToString();
+        AppendLineToBuffer($"Process restarted at {DateTime.Now:T}.");
         ResetHistoryTraversal();
         return true;
+    }
+
+    private void AppendLineToBuffer(string text)
+    {
+        AppendToBuffer(text + Environment.NewLine);
+    }
+
+    private void AppendToBuffer(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        var start = _buffer.Length;
+        _buffer.Append(text);
+        TrackLineBreaks(text, start);
+        TrimOutputIfNeeded();
+        Output = _buffer.ToString();
+    }
+
+    private void TrackLineBreaks(string text, int start)
+    {
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (text[i] == '\n')
+            {
+                _lineBreakPositions.Enqueue(start + i);
+            }
+        }
+    }
+
+    private int GetLineCount()
+    {
+        if (_buffer.Length == 0)
+        {
+            return 0;
+        }
+
+        var lines = _lineBreakPositions.Count + 1;
+        if (_buffer[^1] == '\n')
+        {
+            lines -= 1;
+        }
+
+        return lines;
+    }
+
+    private void TrimOutputIfNeeded()
+    {
+        var excess = GetLineCount() - MaxOutputLines;
+        if (excess <= 0)
+        {
+            return;
+        }
+
+        var lastRemovedBreak = -1;
+        for (var i = 0; i < excess && _lineBreakPositions.Count > 0; i++)
+        {
+            lastRemovedBreak = _lineBreakPositions.Dequeue();
+        }
+
+        if (lastRemovedBreak < 0)
+        {
+            _buffer.Clear();
+            _lineBreakPositions.Clear();
+            return;
+        }
+
+        var removeLength = lastRemovedBreak + 1;
+        _buffer.Remove(0, removeLength);
+
+        var count = _lineBreakPositions.Count;
+        for (var i = 0; i < count; i++)
+        {
+            var adjusted = _lineBreakPositions.Dequeue() - removeLength;
+            _lineBreakPositions.Enqueue(adjusted);
+        }
     }
 
     public bool TryAutoComplete(bool reverse, string currentText, int caretIndex, out int newCaretIndex)
